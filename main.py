@@ -9,7 +9,7 @@ from cad.step_export import export_step
 
 from mesh.msh_generator import generate_mesh
 
-from utils.plot import plot_contour
+from util.plot import plot_contour
 
 
 def main():
