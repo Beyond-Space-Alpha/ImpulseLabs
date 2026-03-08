@@ -9,11 +9,4 @@ ImpulseLabs is good, cool asf
 
 yap yap yap 
 
-
-new changes
-
-Noch new changes
-
-time to make changes
-Hi
-My name 
+gamma alpha
