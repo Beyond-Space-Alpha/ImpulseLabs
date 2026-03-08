@@ -5,3 +5,6 @@ Open-source educational liquid rocket engine design tool integrating isentropic 
 by everyone
 
 (by aditya, saliha,s hishir, aomitra)
+ImpulseLabs is good, cool asf
+
+yap yap yap 
