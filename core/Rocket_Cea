@@ -1,0 +1,78 @@
+from rocketcea.cea_obj import CEA_Obj
+import numpy as np
+from scipy.optimize import fsolve
+
+# -------------------------
+# INPUTS
+# -------------------------
+
+ox = input("Enter oxidizer: ")
+fuel = input("Enter fuel: ")
+
+Pc_bar = float(input("Enter chamber pressure (bar): "))
+Pc = Pc_bar * 14.5038   # psi
+
+MR = float(input("Enter oxidizer-to-fuel mass ratio: "))
+
+Pa_bar = float(input("Enter ambient pressure (bar): "))
+Pa = Pa_bar * 14.5038   # psi
+
+g0 = 9.80665
+
+# -------------------------
+# INITIALIZE CEA
+# -------------------------
+
+cea = CEA_Obj(oxName=ox, fuelName=fuel)
+
+# -------------------------
+# COMBUSTION PROPERTIES
+# -------------------------
+
+Tc = cea.get_Tcomb(Pc=Pc, MR=MR)
+mw, gamma = cea.get_Chamber_MolWt_gamma(Pc=Pc, MR=MR)
+cstar = cea.get_Cstar(Pc=Pc, MR=MR)
+
+# -------------------------
+# SOLVE EXIT MACH NUMBER
+# -------------------------
+
+Pc_pa = Pc_bar * 1e5
+Pa_pa = Pa_bar * 1e5
+
+pressure_ratio = Pa_pa / Pc_pa
+
+def equation(Me):
+    return pressure_ratio - (1 + (gamma-1)/2 * Me**2)**(-gamma/(gamma-1))
+
+Me = fsolve(equation, 3)[0]
+
+# -------------------------
+# EXPANSION RATIO
+# -------------------------
+
+eps = (1/Me) * ((2/(gamma+1))*(1+(gamma-1)/2*Me**2))**((gamma+1)/(2*(gamma-1)))
+
+# -------------------------
+# ISP FROM ROCKETCEA
+# -------------------------
+
+Isp = cea.get_Isp(Pc=Pc, MR=MR, eps=eps)
+
+# -------------------------
+# THRUST COEFFICIENT
+# -------------------------
+
+Cf = (Isp * g0) / cstar
+
+# -------------------------
+# PRINT RESULTS
+# -------------------------
+
+print("THE RESULTS ARE:")
+print("Combustion Temperature:", Tc,"K")
+print("Gamma:", gamma)
+print("Characteristic Velocity:", cstar,"m/s")
+print("Expansion Ratio:", eps)
+print("Specific Impulse:", Isp,"s")
+print("Thrust Coefficient:", Cf)
