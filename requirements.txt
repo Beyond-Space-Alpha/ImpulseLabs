@@ -4,3 +4,4 @@ matplotlib
 cadquery
 gmsh
 meshio
+rocketcea
