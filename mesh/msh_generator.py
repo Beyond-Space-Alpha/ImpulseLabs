@@ -1,7 +1,7 @@
 import gmsh
 
 
-def generate_mesh(step_file,output_file):
+def generate_mesh(step_file, output_file):
 
     gmsh.initialize()
 

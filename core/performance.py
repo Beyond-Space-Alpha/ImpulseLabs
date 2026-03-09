@@ -1,54 +1,51 @@
 import numpy as np
-from .isentropic import characteristic_velocity
+from scipy.optimize import fsolve
 
 
-def throat_area(thrust, Pc, Cf):
-
-    return thrust/(Pc*Cf)
+g0 = 9.80665
 
 
-def thrust_coefficient(gamma, Pe, Pc, Ae_At):
+def solve_exit_mach(gamma, Pc_bar, Pa_bar):
 
-    term1 = np.sqrt(
-        (2*gamma**2/(gamma-1)) *
-        (2/(gamma+1))**((gamma+1)/(gamma-1)) *
-        (1-(Pe/Pc)**((gamma-1)/gamma))
-    )
+    Pc = Pc_bar * 1e5
+    Pa = Pa_bar * 1e5
 
-    term2 = (Pe/Pc)*Ae_At
+    pressure_ratio = Pa / Pc
 
-    return term1+term2
+    def equation(Me):
+
+        return pressure_ratio - (
+            1 + (gamma - 1)/2 * Me**2
+        )**(-gamma/(gamma-1))
+
+    Me = fsolve(equation, 3)[0]
+
+    return Me
 
 
 def expansion_ratio(Me, gamma):
 
-    return (1/Me) * ((2/(gamma+1)*(1+(gamma-1)/2*Me**2))**((gamma+1)/(2*(gamma-1))))
+    return (1/Me) * (
+        (2/(gamma+1)) *
+        (1+(gamma-1)/2 * Me**2)
+    )**((gamma+1)/(2*(gamma-1)))
 
 
-def compute_performance(inputs):
+def thrust_coefficient(Isp, cstar):
 
-    Pc = inputs.chamber_pressure
-    Tc = inputs.chamber_temperature
-    gamma = inputs.gamma
-    R = inputs.gas_constant
-    Pe = inputs.exit_pressure
+    return (Isp * g0) / cstar
 
-    Me = 3.0
 
-    Ae_At = expansion_ratio(Me,gamma)
+def mass_flow_rate(thrust, Isp):
 
-    Cf = thrust_coefficient(gamma,Pe,Pc,Ae_At)
+    return thrust / (Isp * g0)
 
-    At = throat_area(inputs.thrust,Pc,Cf)
 
-    rt = np.sqrt(At/np.pi)
+def throat_area(mdot, Pc, cstar):
 
-    re = rt*np.sqrt(Ae_At)
+    return (mdot * cstar) / Pc
 
-    return {
-        "Cf":Cf,
-        "Ae_At":Ae_At,
-        "At":At,
-        "rt":rt,
-        "re":re
-    }
+
+def diam_from_area(A):
+
+    return np.sqrt(4*A/np.pi)

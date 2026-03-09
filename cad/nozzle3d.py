@@ -3,10 +3,8 @@ import cadquery as cq
 
 def create_nozzle(contour):
 
-    # contour points (x,r)
     points = [(x, y) for x, y in contour]
 
-    # close profile to axis
     points.insert(0, (0, 0))
     points.append((contour[-1][0], 0))
 
