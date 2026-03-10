@@ -3,11 +3,12 @@ from core.validation import validate_inputs
 from core.cea_solver import get_combustion_properties
 from core.performance import *
 
-from geometry.rao import RaoMethod
-from geometry.contour import generate_contour
 from geometry.chamber import *
+from geometry.converging import *
+from geometry.rao import RaoBell
+from geometry.contour2d import build_full_contour
 
-from cad.nozzle3d import create_nozzle
+from cad.nozzle3d import create_3d_nozzle
 from cad.step_export import export_step
 
 from mesh.msh_generator import generate_mesh
@@ -45,54 +46,65 @@ def main():
     Pc = inputs.chamber_pressure_bar * 1e5
 
     Isp = cea.get_Isp(
-        Pc=inputs.chamber_pressure_bar * 14.5038,
+        Pc=inputs.chamber_pressure_bar*14.5038,
         MR=inputs.mixture_ratio,
         eps=eps
     )
 
-    Cf = thrust_coefficient(Isp, cstar)
+    mdot = inputs.mass_flow or mass_flow_rate(inputs.thrust,Isp)
 
-    mdot = inputs.mass_flow or mass_flow_rate(inputs.thrust, Isp)
+    At = throat_area(mdot,Pc,cstar)
 
-    At = throat_area(mdot, Pc, cstar)
+    rt = diam_from_area(At)/2
 
-    rt = diam_from_area(At) / 2
+    re = rt*(eps**0.5)
 
-    re = rt * (eps**0.5)
-
-    rc = chamber_geometry(rt, inputs.contraction_ratio)
+    rc = chamber_geometry(rt,inputs.contraction_ratio)
 
     Lc = chamber_length(rt)
 
-    print("\nRESULTS\n")
+    bell = RaoBell()
 
-    print("Exit Mach:", Me)
-    print("Expansion Ratio:", eps)
-    print("Isp:", Isp)
-    print("Mass Flow:", mdot)
+    Ln = bell.nozzle_length(rt,re)
 
-    print("Throat Radius:", rt)
-    print("Exit Radius:", re)
-    print("Chamber Radius:", rc)
-    print("Chamber Length:", Lc)
+        # chamber
+    chamber_pts = [
+        (-Lc, rc),
+        (0, rc)
+    ]
 
-    rao = RaoMethod()
+    # converging
+    conv_pts = converging_section(
+        rc,
+        rt,
+        x_start=0,
+        length=0.05
+    )
 
-    Ln = rao.compute_length(rt, re)
+    # bell
+    bell_pts = bell.bell_curve(
+        rt,
+        re,
+        Ln,
+        x_start=conv_pts[-1][0]
+    )
 
-    contour = generate_contour(rt, re, Ln)
+    contour = build_full_contour(
+        chamber_pts,
+        conv_pts,
+        bell_pts
+    )
 
     plot_contour(contour)
 
-    nozzle = create_nozzle(contour)
+    solid = create_3d_nozzle(contour)
 
-    export_step(nozzle, "nozzle.step")
+    export_step(solid,"engine.step")
 
-    generate_mesh("nozzle.step", "nozzle.msh")
+    generate_mesh("engine.step","engine.msh")
 
-    print("\nSTEP + MESH GENERATED")
+    print("2D contour + 3D CAD generated")
 
 
-if __name__ == "__main__":
-
+if __name__=="__main__":
     main()

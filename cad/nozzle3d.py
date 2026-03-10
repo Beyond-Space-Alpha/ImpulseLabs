@@ -1,19 +1,32 @@
 import cadquery as cq
 
 
-def create_nozzle(contour):
+def clean_points(points):
 
-    points = [(x, y) for x, y in contour]
+    clean=[]
 
-    points.insert(0, (0, 0))
-    points.append((contour[-1][0], 0))
+    for p in points:
+        if len(clean)==0 or p!=clean[-1]:
+            clean.append(p)
 
-    wp = cq.Workplane("XZ")
+    return clean
 
-    nozzle = (
-        wp.polyline(points)
+
+def create_3d_nozzle(contour):
+
+    contour = clean_points(contour)
+
+    pts=[(x,y) for x,y in contour]
+
+    pts.insert(0,(pts[0][0],0))
+    pts.append((pts[-1][0],0))
+
+    wp=cq.Workplane("XZ")
+
+    solid=(
+        wp.polyline(pts)
         .close()
-        .revolve(360, (0,0,0), (1,0,0))
+        .revolve(360,(0,0,0),(1,0,0))
     )
 
-    return nozzle
+    return solid

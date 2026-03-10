@@ -1,19 +1,29 @@
 import numpy as np
 
 
-class RaoMethod:
+class RaoBell:
 
-    def __init__(self, method="simple"):
+    def __init__(self,
+                 theta_n_deg=30,
+                 theta_e_deg=15):
 
-        self.method = method
+        self.theta_n = np.radians(theta_n_deg)
+        self.theta_e = np.radians(theta_e_deg)
 
 
-    def compute_length(self, rt, re):
+    def nozzle_length(self, rt, re):
 
-        if self.method == "simple":
+        L = (re - rt) / np.tan(self.theta_n)
 
-            conical_length = (re - rt) / np.tan(np.radians(15))
+        return 0.8 * L
 
-            return 0.8 * conical_length
 
-        raise ValueError("Unknown Rao method")
+    def bell_curve(self, rt, re, L, x_start=0, n=200):
+
+        x = np.linspace(x_start, x_start + L, n)
+
+        s = (x - x_start) / L
+
+        y = rt + (re - rt) * (s**2)
+
+        return list(zip(x, y))
