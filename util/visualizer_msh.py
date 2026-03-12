@@ -2,7 +2,7 @@ import meshio
 import pyvista as pv
 import numpy as np
 
-mesh = meshio.read("engine.msh")
+mesh = meshio.read("nozzle.msh")
 
 points = mesh.points
 triangles = mesh.cells_dict["triangle"]
