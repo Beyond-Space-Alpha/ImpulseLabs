@@ -25,8 +25,6 @@
 #         return list(zip(x, y))
 
 import numpy as np
-
-
 class RaoBell:
 
     def __init__(self, theta_n=30, theta_e=12):
