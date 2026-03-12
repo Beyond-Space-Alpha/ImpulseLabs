@@ -11,14 +11,30 @@
 import numpy as np
 
 
-def converging_section(rc, rt, x_start, angle_deg=45, n=50):
+def converging_section(rc, rt, x_start, length=0.05, n=100):
 
-    angle = np.radians(angle_deg)
+    x0 = x_start
+    x1 = x_start + length
 
-    length = (rc - rt) / np.tan(angle)
+    y0 = rc
+    y1 = rt
 
-    x = np.linspace(x_start, x_start + length, n)
+    A = np.array([
+        [x0**2, x0, 1],
+        [x1**2, x1, 1],
+        [2*x1, 1, 0]
+    ])
 
-    y = rc - (x - x_start) * np.tan(angle)
+    B = np.array([
+        y0,
+        y1,
+        0
+    ])
+
+    a, b, c = np.linalg.solve(A, B)
+
+    x = np.linspace(x0, x1, n)
+
+    y = a*x**2 + b*x + c
 
     return list(zip(x, y)), length
