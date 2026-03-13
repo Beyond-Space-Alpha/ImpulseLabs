@@ -1,39 +1,70 @@
 import gmsh
+import numpy as np
+
+
+def clean_contour(contour):
+
+    clean = []
+
+    for p in contour:
+
+        if len(clean) == 0:
+            clean.append(p)
+            continue
+
+        # remove duplicate points
+        if np.allclose(p, clean[-1]):
+            continue
+
+        # enforce increasing x
+        if p[0] <= clean[-1][0]:
+            continue
+
+        clean.append(p)
+
+    return clean
 
 
 def generate_axi_mesh(contour, filename="engine_axi.msh"):
 
+    contour = clean_contour(contour)
+
     gmsh.initialize()
-    gmsh.model.add("rocket_nozzle_axi")
+    gmsh.model.add("rocket_nozzle")
 
     pts = []
 
     for x, r in contour:
-        p = gmsh.model.geo.addPoint(x, r, 0)
-        pts.append(p)
+
+        pts.append(
+            gmsh.model.geo.addPoint(x, r, 0, 0.002)
+        )
 
     axis_start = gmsh.model.geo.addPoint(contour[0][0], 0, 0)
     axis_end = gmsh.model.geo.addPoint(contour[-1][0], 0, 0)
 
-    wall_lines = []
+    wall = []
 
     for i in range(len(pts) - 1):
-        l = gmsh.model.geo.addLine(pts[i], pts[i + 1])
-        wall_lines.append(l)
+
+        wall.append(
+            gmsh.model.geo.addLine(pts[i], pts[i + 1])
+        )
 
     inlet = gmsh.model.geo.addLine(axis_start, pts[0])
     outlet = gmsh.model.geo.addLine(pts[-1], axis_end)
     axis = gmsh.model.geo.addLine(axis_end, axis_start)
 
     loop = gmsh.model.geo.addCurveLoop(
-        [inlet] + wall_lines + [outlet, axis]
+        [inlet] + wall + [outlet, axis]
     )
 
-    surface = gmsh.model.geo.addPlaneSurface([loop])
+    gmsh.model.geo.addPlaneSurface([loop])
 
     gmsh.model.geo.synchronize()
 
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.002)
+    # mesh size controls
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.001)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.01)
 
     gmsh.model.mesh.generate(2)
@@ -42,4 +73,4 @@ def generate_axi_mesh(contour, filename="engine_axi.msh"):
 
     gmsh.finalize()
 
-    print("Mesh written to", filename)
+    print("Mesh written:", filename)
