@@ -10,3 +10,4 @@ def converging_parabola(rc, rt, x0, length, n=80):
     y = rc - (rc - rt) * (s ** 2)
 
     return list(zip(x, y))
+
