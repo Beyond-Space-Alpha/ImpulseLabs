@@ -12,11 +12,13 @@ from mesh.msh_generator import generate_axi_mesh
 
 class PlotCanvas(FigureCanvasQTAgg):
 
-    def __init__(self):
+    def __init__(self, title=""):
 
         self.figure = Figure()
 
         self.ax = self.figure.add_subplot(111)
+
+        self.ax.set_title(title)
 
         super().__init__(self.figure)
 
@@ -31,9 +33,21 @@ class MainWindow(QMainWindow):
 
         self.contour = None
 
-        layout = QVBoxLayout()
+        # MAIN LAYOUT
+        main_layout = QHBoxLayout()
 
-        # INPUTS
+        # --------------------------------
+        # LEFT PANEL (INPUTS)
+        # --------------------------------
+
+        input_panel = QVBoxLayout()
+
+        title = QLabel("Engine Inputs")
+        title.setStyleSheet("font-weight: bold; font-size:16px")
+
+        input_panel.addWidget(title)
+
+        # Inputs
 
         self.thrust = QDoubleSpinBox()
         self.thrust.setValue(500)
@@ -50,54 +64,66 @@ class MainWindow(QMainWindow):
         self.fuel = QComboBox()
         self.fuel.addItems(["RP1","LH2","CH4"])
 
-        layout.addWidget(QLabel("Thrust"))
-        layout.addWidget(self.thrust)
+        input_panel.addWidget(QLabel("Thrust (N)"))
+        input_panel.addWidget(self.thrust)
 
-        layout.addWidget(QLabel("Chamber Pressure"))
-        layout.addWidget(self.pressure)
+        input_panel.addWidget(QLabel("Chamber Pressure (bar)"))
+        input_panel.addWidget(self.pressure)
 
-        layout.addWidget(QLabel("Mixture Ratio"))
-        layout.addWidget(self.mr)
+        input_panel.addWidget(QLabel("Mixture Ratio"))
+        input_panel.addWidget(self.mr)
 
-        layout.addWidget(QLabel("Oxidizer"))
-        layout.addWidget(self.oxidizer)
+        input_panel.addWidget(QLabel("Oxidizer"))
+        input_panel.addWidget(self.oxidizer)
 
-        layout.addWidget(QLabel("Fuel"))
-        layout.addWidget(self.fuel)
+        input_panel.addWidget(QLabel("Fuel"))
+        input_panel.addWidget(self.fuel)
 
-        # BUTTONS
+        # Buttons
 
         self.run_button = QPushButton("Run Simulation")
         self.mesh_button = QPushButton("Generate Mesh")
 
-        layout.addWidget(self.run_button)
-        layout.addWidget(self.mesh_button)
+        input_panel.addSpacing(20)
+
+        input_panel.addWidget(self.run_button)
+        input_panel.addWidget(self.mesh_button)
+
+        input_panel.addStretch()
+
+        # --------------------------------
+        # RIGHT PANEL (GRAPHS)
+        # --------------------------------
+
+        graph_layout = QHBoxLayout()
+
+        self.geometry_plot = PlotCanvas("Nozzle Geometry")
+
+        self.mesh_plot = PlotCanvas("CFD Mesh")
+
+        graph_layout.addWidget(self.geometry_plot)
+        graph_layout.addWidget(self.mesh_plot)
+
+        # --------------------------------
+        # ADD PANELS TO MAIN
+        # --------------------------------
+
+        main_layout.addLayout(input_panel, 1)
+        main_layout.addLayout(graph_layout, 3)
+
+        container = QWidget()
+        container.setLayout(main_layout)
+
+        self.setCentralWidget(container)
+
+        # CONNECT BUTTONS
 
         self.run_button.clicked.connect(self.run_simulation)
         self.mesh_button.clicked.connect(self.generate_mesh)
 
-        # GEOMETRY PLOT
-
-        layout.addWidget(QLabel("Nozzle Geometry"))
-
-        self.geometry_plot = PlotCanvas()
-
-        layout.addWidget(self.geometry_plot)
-
-        # MESH PLOT
-
-        layout.addWidget(QLabel("Mesh"))
-
-        self.mesh_plot = PlotCanvas()
-
-        layout.addWidget(self.mesh_plot)
-
-        widget = QWidget()
-
-        widget.setLayout(layout)
-
-        self.setCentralWidget(widget)
-
+    # ------------------------------------
+    # SIMULATION
+    # ------------------------------------
 
     def run_simulation(self):
 
@@ -143,8 +169,8 @@ class MainWindow(QMainWindow):
         x = [p[0] for p in self.contour]
         y = [p[1] for p in self.contour]
 
-        self.geometry_plot.ax.plot(x,y)
-        self.geometry_plot.ax.plot(x,[-v for v in y])
+        self.geometry_plot.ax.plot(x, y)
+        self.geometry_plot.ax.plot(x, [-v for v in y])
 
         self.geometry_plot.ax.set_aspect("equal")
 
@@ -152,6 +178,9 @@ class MainWindow(QMainWindow):
 
         self.geometry_plot.draw()
 
+    # ------------------------------------
+    # MESH GENERATION
+    # ------------------------------------
 
     def generate_mesh(self):
 
@@ -162,7 +191,6 @@ class MainWindow(QMainWindow):
                 "Error",
                 "Run simulation first."
             )
-
             return
 
         generate_axi_mesh(self.contour)
@@ -180,7 +208,6 @@ class MainWindow(QMainWindow):
             if cell.type.startswith("triangle"):
 
                 cells = cell.data[:, :3]
-
                 break
 
         if cells is None:
@@ -190,7 +217,6 @@ class MainWindow(QMainWindow):
                 "Mesh Error",
                 "No triangular elements found."
             )
-
             return
 
         self.mesh_plot.ax.triplot(
