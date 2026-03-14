@@ -15,7 +15,6 @@ class PlotCanvas(FigureCanvasQTAgg):
     def __init__(self, title=""):
 
         self.figure = Figure()
-
         self.ax = self.figure.add_subplot(111)
 
         self.ax.set_title(title)
@@ -29,109 +28,165 @@ class MainWindow(QMainWindow):
 
         super().__init__()
 
-        self.setWindowTitle("ImpulseLabs Rocket Tool")
+        self.setWindowTitle("ImpulseLabs")
 
         self.contour = None
 
-        # MAIN LAYOUT
-        main_layout = QHBoxLayout()
+        main_layout = QVBoxLayout()
 
-        # --------------------------------
-        # LEFT PANEL (INPUTS)
-        # --------------------------------
+        # TOP AREA (inputs + plots)
+        top_layout = QHBoxLayout()
 
-        input_panel = QVBoxLayout()
+        # -------------------------
+        # INPUT PANEL
+        # -------------------------
+
+        input_layout = QVBoxLayout()
 
         title = QLabel("Engine Inputs")
-        title.setStyleSheet("font-weight: bold; font-size:16px")
+        title.setStyleSheet("font-size:16px;font-weight:bold")
 
-        input_panel.addWidget(title)
+        input_layout.addWidget(title)
 
-        # Inputs
+        # thrust slider
 
-        self.thrust = QDoubleSpinBox()
-        self.thrust.setValue(500)
+        self.thrust_slider = QSlider()
+        self.thrust_slider.setOrientation(1)
+        self.thrust_slider.setRange(100, 5000)
+        self.thrust_slider.setValue(500)
 
-        self.pressure = QDoubleSpinBox()
-        self.pressure.setValue(30)
+        self.thrust_value = QLabel("500 N")
 
-        self.mr = QDoubleSpinBox()
-        self.mr.setValue(2.5)
+        input_layout.addWidget(QLabel("Thrust"))
+        input_layout.addWidget(self.thrust_slider)
+        input_layout.addWidget(self.thrust_value)
+
+        # pressure slider
+
+        self.pressure_slider = QSlider()
+        self.pressure_slider.setOrientation(1)
+        self.pressure_slider.setRange(5, 100)
+        self.pressure_slider.setValue(30)
+
+        self.pressure_value = QLabel("30 bar")
+
+        input_layout.addWidget(QLabel("Chamber Pressure"))
+        input_layout.addWidget(self.pressure_slider)
+        input_layout.addWidget(self.pressure_value)
+
+        # mixture ratio
+
+        self.mr_slider = QSlider()
+        self.mr_slider.setOrientation(1)
+        self.mr_slider.setRange(10, 50)
+        self.mr_slider.setValue(25)
+
+        self.mr_value = QLabel("2.5")
+
+        input_layout.addWidget(QLabel("Mixture Ratio"))
+        input_layout.addWidget(self.mr_slider)
+        input_layout.addWidget(self.mr_value)
+
+        # propellant
 
         self.oxidizer = QComboBox()
-        self.oxidizer.addItems(["LOX","N2O","GOX"])
+        self.oxidizer.addItems(["LOX", "N2O", "GOX"])
 
         self.fuel = QComboBox()
-        self.fuel.addItems(["RP1","LH2","CH4"])
+        self.fuel.addItems(["RP1", "LH2", "CH4"])
 
-        input_panel.addWidget(QLabel("Thrust (N)"))
-        input_panel.addWidget(self.thrust)
+        input_layout.addWidget(QLabel("Oxidizer"))
+        input_layout.addWidget(self.oxidizer)
 
-        input_panel.addWidget(QLabel("Chamber Pressure (bar)"))
-        input_panel.addWidget(self.pressure)
+        input_layout.addWidget(QLabel("Fuel"))
+        input_layout.addWidget(self.fuel)
 
-        input_panel.addWidget(QLabel("Mixture Ratio"))
-        input_panel.addWidget(self.mr)
-
-        input_panel.addWidget(QLabel("Oxidizer"))
-        input_panel.addWidget(self.oxidizer)
-
-        input_panel.addWidget(QLabel("Fuel"))
-        input_panel.addWidget(self.fuel)
-
-        # Buttons
+        # buttons
 
         self.run_button = QPushButton("Run Simulation")
         self.mesh_button = QPushButton("Generate Mesh")
 
-        input_panel.addSpacing(20)
+        input_layout.addWidget(self.run_button)
+        input_layout.addWidget(self.mesh_button)
 
-        input_panel.addWidget(self.run_button)
-        input_panel.addWidget(self.mesh_button)
+        # description box
 
-        input_panel.addStretch()
+        self.description = QTextEdit()
+        self.description.setReadOnly(True)
 
-        # --------------------------------
-        # RIGHT PANEL (GRAPHS)
-        # --------------------------------
+        self.description.setText(
+            "Thrust: Desired engine thrust (N)\n"
+            "Chamber Pressure: Pressure inside combustion chamber (bar)\n"
+            "Mixture Ratio: Oxidizer/Fuel mass ratio\n"
+            "Propellant: Fuel and oxidizer combination"
+        )
+
+        input_layout.addWidget(QLabel("Parameter Description"))
+        input_layout.addWidget(self.description)
+
+        # -------------------------
+        # PLOTS
+        # -------------------------
 
         graph_layout = QHBoxLayout()
 
         self.geometry_plot = PlotCanvas("Nozzle Geometry")
-
-        self.mesh_plot = PlotCanvas("CFD Mesh")
+        self.mesh_plot = PlotCanvas("Mesh")
 
         graph_layout.addWidget(self.geometry_plot)
         graph_layout.addWidget(self.mesh_plot)
 
-        # --------------------------------
-        # ADD PANELS TO MAIN
-        # --------------------------------
+        top_layout.addLayout(input_layout, 1)
+        top_layout.addLayout(graph_layout, 3)
 
-        main_layout.addLayout(input_panel, 1)
-        main_layout.addLayout(graph_layout, 3)
+        main_layout.addLayout(top_layout)
+
+        # -------------------------
+        # DIMENSION OUTPUT
+        # -------------------------
+
+        self.dimensions = QLabel("Geometry dimensions will appear here")
+
+        self.dimensions.setStyleSheet("font-size:12px")
+
+        main_layout.addWidget(self.dimensions)
 
         container = QWidget()
         container.setLayout(main_layout)
 
         self.setCentralWidget(container)
 
-        # CONNECT BUTTONS
+        # connections
 
         self.run_button.clicked.connect(self.run_simulation)
         self.mesh_button.clicked.connect(self.generate_mesh)
 
-    # ------------------------------------
-    # SIMULATION
-    # ------------------------------------
+        self.thrust_slider.valueChanged.connect(
+            lambda v: self.thrust_value.setText(f"{v} N")
+        )
+
+        self.pressure_slider.valueChanged.connect(
+            lambda v: self.pressure_value.setText(f"{v} bar")
+        )
+
+        self.mr_slider.valueChanged.connect(
+            lambda v: self.mr_value.setText(f"{v/10}")
+        )
+
+    # -------------------------
+    # RUN SIMULATION
+    # -------------------------
 
     def run_simulation(self):
 
-        self.geometry_plot.ax.clear()
+        thrust = self.thrust_slider.value()
+        pressure = self.pressure_slider.value()
+        mr = self.mr_slider.value() / 10
 
-        rt = 0.02
-        re = 0.06
-        rc = 0.04
+        # example scaling for geometry
+        rt = 0.01 + thrust / 20000
+        re = rt * 3
+        rc = rt * 2
 
         chamber_length = 0.05
 
@@ -169,28 +224,31 @@ class MainWindow(QMainWindow):
         x = [p[0] for p in self.contour]
         y = [p[1] for p in self.contour]
 
+        self.geometry_plot.ax.clear()
+
         self.geometry_plot.ax.plot(x, y)
         self.geometry_plot.ax.plot(x, [-v for v in y])
 
         self.geometry_plot.ax.set_aspect("equal")
 
-        self.geometry_plot.ax.set_title("Rocket Nozzle Contour")
-
         self.geometry_plot.draw()
 
-    # ------------------------------------
+        # display dimensions
+
+        self.dimensions.setText(
+            f"Throat Radius: {rt:.4f} m   |   Exit Radius: {re:.4f} m   |   "
+            f"Chamber Radius: {rc:.4f} m   |   Nozzle Length: {L:.4f} m"
+        )
+
+    # -------------------------
     # MESH GENERATION
-    # ------------------------------------
+    # -------------------------
 
     def generate_mesh(self):
 
         if self.contour is None:
 
-            QMessageBox.warning(
-                self,
-                "Error",
-                "Run simulation first."
-            )
+            QMessageBox.warning(self, "Error", "Run simulation first")
             return
 
         generate_axi_mesh(self.contour)
@@ -211,23 +269,15 @@ class MainWindow(QMainWindow):
                 break
 
         if cells is None:
-
-            QMessageBox.warning(
-                self,
-                "Mesh Error",
-                "No triangular elements found."
-            )
             return
 
         self.mesh_plot.ax.triplot(
-            points[:,0],
-            points[:,1],
+            points[:, 0],
+            points[:, 1],
             cells,
             linewidth=0.5
         )
 
         self.mesh_plot.ax.set_aspect("equal")
-
-        self.mesh_plot.ax.set_title("Axisymmetric Mesh")
 
         self.mesh_plot.draw()
