@@ -1,3 +1,4 @@
+from geometry.chamber import chamber_length
 from geometry.rao import RaoBell
 from mesh.msh_generator import generate_axi_mesh
 
@@ -10,13 +11,19 @@ def main():
     # Example geometry (normally computed from RocketCEA)
     rt = 0.02
     re = 0.06
-
-    chamber_length = 0.05
     chamber_radius = 0.04
+
+    # converging section geometry
+    conv_start_x = 0.0
+    conv_end_x = 0.02
+    conv_length = conv_end_x - conv_start_x
+
+    # compute chamber length instead of fixing it
+    chamber_len = chamber_length(rt, chamber_radius, L_star=1.0, conv_length=conv_length)
 
     # chamber section
     chamber = [
-        (-chamber_length, chamber_radius),
+        (-chamber_len, chamber_radius),
         (0, chamber_radius)
     ]
 
