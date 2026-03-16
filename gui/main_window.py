@@ -52,7 +52,7 @@ class MainWindow(QMainWindow):
 
         self.thrust_slider = QSlider()
         self.thrust_slider.setOrientation(1)
-        self.thrust_slider.setRange(100, 5000)
+        self.thrust_slider.setRange(10, 10000)
         self.thrust_slider.setValue(500)
 
         self.thrust_value = QLabel("500 N")
@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
 
         self.pressure_slider = QSlider()
         self.pressure_slider.setOrientation(1)
-        self.pressure_slider.setRange(5, 100)
+        self.pressure_slider.setRange(5, 150)
         self.pressure_slider.setValue(30)
 
         self.pressure_value = QLabel("30 bar")
