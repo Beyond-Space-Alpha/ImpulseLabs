@@ -1,24 +1,43 @@
-# ImpulseLabs
-Open-source educational liquid rocket engine design tool integrating isentropic analysis, Rao nozzle contour generation, and CAD export.
+# IMPULSE LABS GUIDE
 
+### GitHubs Ops
 
-by everyone
+*Pulling or updating the code*
+git pull
 
-(by aditya, saliha,s hishir, aomitra)
-ImpulseLabs is good, cool asf
+*Adding your updates to the code*
+git add -A
+git commit -m "<Some message>"
+git push origin main
 
-yap yap yap 
+### Installation
 
-gamma alpha
+*Generic installation*
+pip install -r requirements.txt
+or 
+python -m pip install -r requirements.txt
 
-One more change, just one
+*PyQt5 error faced while running above*
+pip install pyside6
+or python -m pip insatll pyside6
+(this should make the run_ui file work)
 
+or 
 
-new feature
+install a anaconda enviroment less than or equal to a 3.11 and run the pip install requirements.txt in it. 
 
-fdsafsdafsdfvsdafsd ff
+### Files to Run
 
+*UI File => Frontend  + Backend*
+python run_ui.py
 
-sarah made changes
-fgjhfghfghfhjghghhdjkf
-dsghfdojgfdjoghsdaoif
+*Ops file => only backend*
+python main.py
+
+### License
+
+Apace 2.0 License
+or 
+MIT License
+or 
+GPL License
