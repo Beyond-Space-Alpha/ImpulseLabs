@@ -1,12 +1,13 @@
 import sys
-from PyQt5.QtWidgets import QApplication
-from gui.main_window import MainWindow
-
+import qdarkstyle
+from PySide6.QtWidgets import QApplication
+from gui.main_window import ImpulseLabsWindow
 
 app = QApplication(sys.argv)
 
-window = MainWindow()
+app.setStyleSheet(qdarkstyle.load_stylesheet())
 
+window = ImpulseLabsWindow()
 window.show()
 
-sys.exit(app.exec_())
+sys.exit(app.exec())
