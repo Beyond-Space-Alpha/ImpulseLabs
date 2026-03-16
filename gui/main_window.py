@@ -20,9 +20,7 @@ class PlotCanvas(FigureCanvasQTAgg):
         self.ax = fig.add_subplot(111)
 
         self.ax.set_facecolor("#121212")
-
         self.ax.set_title(title, color="white")
-
         self.ax.tick_params(colors="white")
 
         super().__init__(fig)
@@ -35,8 +33,7 @@ class ImpulseLabsWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Impulse Labs")
-
-        self.resize(1400, 800)
+        self.resize(1500, 850)
 
         self.contour = None
 
@@ -44,16 +41,19 @@ class ImpulseLabsWindow(QMainWindow):
 
         self.create_layout()
 
-    # ----------------------------------------------------
-    # MENU BAR
-    # ----------------------------------------------------
+        self.create_llm_panel()
+
+        self.create_status()
+
+    # ------------------------------------------------
+    # MENU
+    # ------------------------------------------------
 
     def create_menu(self):
 
         menu = self.menuBar()
 
         file_menu = menu.addMenu("File")
-
         file_menu.addAction("New")
         file_menu.addAction("Open Contour")
         file_menu.addAction("Open Mesh")
@@ -70,74 +70,85 @@ class ImpulseLabsWindow(QMainWindow):
         help_menu.addAction("User Guide")
 
         llm_menu = menu.addMenu("LLM")
-        llm_menu.addAction("Open Chat", self.toggle_llm)
+        llm_menu.addAction("Toggle Chat", self.toggle_llm)
 
-    # ----------------------------------------------------
+    # ------------------------------------------------
     # MAIN LAYOUT
-    # ----------------------------------------------------
+    # ------------------------------------------------
 
     def create_layout(self):
 
         central = QWidget()
 
-        layout = QHBoxLayout()
+        self.main_layout = QHBoxLayout()
 
-        layout.addWidget(self.create_inputs(), 1)
+        self.main_layout.addWidget(self.create_inputs(), 1)
 
-        layout.addWidget(self.create_plots(), 3)
+        self.main_layout.addWidget(self.create_plots(), 3)
 
-        central.setLayout(layout)
+        central.setLayout(self.main_layout)
 
         self.setCentralWidget(central)
 
-        self.create_status()
-
-    # ----------------------------------------------------
+    # ------------------------------------------------
     # INPUT PANEL
-    # ----------------------------------------------------
+    # ------------------------------------------------
 
     def create_inputs(self):
 
         panel = QVBoxLayout()
 
         title = QLabel("Engine Inputs")
-
         title.setStyleSheet("font-size:18px")
 
         panel.addWidget(title)
 
         self.thrust = self.slider("Thrust (N)", 100, 5000, 500)
-
         self.pressure = self.slider("Chamber Pressure (bar)", 5, 100, 30)
-
         self.mr = self.slider("Mixture Ratio", 10, 50, 25, scale=0.1)
 
         panel.addWidget(self.thrust["widget"])
         panel.addWidget(self.pressure["widget"])
         panel.addWidget(self.mr["widget"])
 
+        # OPTIONAL INPUTS
+
+        panel.addWidget(QLabel("Chamber Temperature (K)  [Optional]"))
+        self.temp_input = QLineEdit()
+        self.temp_input.setPlaceholderText("Auto if empty")
+        panel.addWidget(self.temp_input)
+
+        panel.addWidget(QLabel("Contraction Ratio  [Optional]"))
+        self.contraction_input = QLineEdit()
+        self.contraction_input.setPlaceholderText("Auto if empty")
+        panel.addWidget(self.contraction_input)
+
+        panel.addWidget(QLabel("Ambient Pressure (bar)  [Optional]"))
+        self.ambient_input = QLineEdit()
+        self.ambient_input.setPlaceholderText("Auto if empty")
+        panel.addWidget(self.ambient_input)
+
+        # BUTTONS
+
         self.run_button = QPushButton("Run Simulation")
-
         self.mesh_button = QPushButton("Generate Mesh")
-
-        self.run_button.clicked.connect(self.run_simulation)
-
-        self.mesh_button.clicked.connect(self.generate_mesh)
 
         panel.addWidget(self.run_button)
         panel.addWidget(self.mesh_button)
 
-        desc = QTextEdit()
+        self.run_button.clicked.connect(self.run_simulation)
+        self.mesh_button.clicked.connect(self.generate_mesh)
 
+        # DESCRIPTION
+
+        desc = QTextEdit()
         desc.setReadOnly(True)
 
         desc.setText(
-            "Thrust (N)\n"
-            "Desired engine thrust.\n\n"
-            "Chamber Pressure (bar)\n"
-            "Combustion chamber pressure.\n\n"
-            "Mixture Ratio\n"
-            "Oxidizer/Fuel mass ratio."
+            "Thrust (N)\nDesired engine thrust.\n\n"
+            "Chamber Pressure (bar)\nPressure inside combustion chamber.\n\n"
+            "Mixture Ratio\nOxidizer/Fuel mass ratio.\n\n"
+            "Optional Inputs\nIf left blank, ImpulseLabs assumes standard values."
         )
 
         panel.addWidget(QLabel("Parameter Description"))
@@ -148,9 +159,9 @@ class ImpulseLabsWindow(QMainWindow):
 
         return widget
 
-    # ----------------------------------------------------
-    # SLIDER + TEXT INPUT
-    # ----------------------------------------------------
+    # ------------------------------------------------
+    # SLIDER
+    # ------------------------------------------------
 
     def slider(self, label, minv, maxv, value, scale=1):
 
@@ -161,9 +172,7 @@ class ImpulseLabsWindow(QMainWindow):
         row = QHBoxLayout()
 
         slider = QSlider(Qt.Horizontal)
-
         slider.setRange(minv, maxv)
-
         slider.setValue(value)
 
         textbox = QLineEdit(str(value * scale))
@@ -184,19 +193,18 @@ class ImpulseLabsWindow(QMainWindow):
         widget = QWidget()
         widget.setLayout(layout)
 
-        return {"widget": widget, "slider": slider, "textbox": textbox, "scale": scale}
+        return {"widget": widget, "slider": slider, "textbox": textbox}
 
-    # ----------------------------------------------------
+    # ------------------------------------------------
     # PLOTS
-    # ----------------------------------------------------
+    # ------------------------------------------------
 
     def create_plots(self):
 
         layout = QHBoxLayout()
 
         self.geometry_plot = PlotCanvas("Nozzle Geometry")
-
-        self.mesh_plot = PlotCanvas("Mesh")
+        self.mesh_plot = PlotCanvas("CFD Mesh")
 
         layout.addWidget(self.geometry_plot)
         layout.addWidget(self.mesh_plot)
@@ -206,9 +214,36 @@ class ImpulseLabsWindow(QMainWindow):
 
         return container
 
-    # ----------------------------------------------------
+    # ------------------------------------------------
+    # LLM PANEL
+    # ------------------------------------------------
+
+    def create_llm_panel(self):
+
+        self.llm_panel = QDockWidget("Impulse Labs Assistant", self)
+
+        self.llm_panel.setAllowedAreas(Qt.RightDockWidgetArea)
+
+        chat = QTextEdit()
+
+        chat.setPlaceholderText("Ask questions about propulsion, equations, or geometry...")
+
+        self.llm_panel.setWidget(chat)
+
+        self.addDockWidget(Qt.RightDockWidgetArea, self.llm_panel)
+
+        self.llm_panel.hide()
+
+    def toggle_llm(self):
+
+        if self.llm_panel.isVisible():
+            self.llm_panel.hide()
+        else:
+            self.llm_panel.show()
+
+    # ------------------------------------------------
     # STATUS BAR
-    # ----------------------------------------------------
+    # ------------------------------------------------
 
     def create_status(self):
 
@@ -216,18 +251,16 @@ class ImpulseLabsWindow(QMainWindow):
 
         self.statusBar().addWidget(self.status)
 
-    # ----------------------------------------------------
+    # ------------------------------------------------
     # SIMULATION
-    # ----------------------------------------------------
+    # ------------------------------------------------
 
     def run_simulation(self):
 
         thrust = self.thrust["slider"].value()
 
         rt = 0.01 + thrust / 20000
-
         re = rt * 3
-
         rc = rt * 2
 
         chamber_length = 0.05
@@ -247,7 +280,6 @@ class ImpulseLabsWindow(QMainWindow):
         self.contour = chamber + conv[1:] + throat[1:] + bell[1:]
 
         x = [p[0] for p in self.contour]
-
         y = [p[1] for p in self.contour]
 
         self.geometry_plot.ax.clear()
@@ -263,9 +295,9 @@ class ImpulseLabsWindow(QMainWindow):
             f"Throat Radius: {rt:.4f} m | Exit Radius: {re:.4f} m | Chamber Radius: {rc:.4f} m | Nozzle Length: {L:.4f} m"
         )
 
-    # ----------------------------------------------------
+    # ------------------------------------------------
     # MESH
-    # ----------------------------------------------------
+    # ------------------------------------------------
 
     def generate_mesh(self):
 
@@ -281,7 +313,6 @@ class ImpulseLabsWindow(QMainWindow):
         cells = None
 
         for c in mesh.cells:
-
             if c.type.startswith("triangle"):
                 cells = c.data[:, :3]
 
@@ -296,25 +327,7 @@ class ImpulseLabsWindow(QMainWindow):
 
         self.mesh_plot.draw()
 
-    # ----------------------------------------------------
-    # TOOLS
-    # ----------------------------------------------------
-
-    def toggle_llm(self):
-
-        dlg = QDialog(self)
-
-        dlg.setWindowTitle("Impulse Labs LLM Assistant")
-
-        layout = QVBoxLayout()
-
-        layout.addWidget(QTextEdit())
-
-        dlg.setLayout(layout)
-
-        dlg.resize(400, 500)
-
-        dlg.show()
+    # ------------------------------------------------
 
     def toggle_fullscreen(self):
 
