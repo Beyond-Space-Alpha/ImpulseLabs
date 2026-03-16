@@ -1,43 +1,84 @@
-# IMPULSE LABS GUIDE
+# Impulse Labs Guide
 
-### GitHubs Ops
+## GitHub Operations
 
-*Pulling or updating the code*
+### Pull or Update Code
+```bash
 git pull
+````
 
-*Adding your updates to the code*
+### Add and Push Your Changes
+
+```bash
 git add -A
-git commit -m "<Some message>"
+git commit -m "Some message"
 git push origin main
+```
 
-### Installation
+---
 
-*Generic installation*
+## Installation
+
+### Generic Installation
+
+```bash
 pip install -r requirements.txt
-or 
+```
+
+or
+
+```bash
 python -m pip install -r requirements.txt
+```
 
-*PyQt5 error faced while running above*
+### If You Face a PyQt5 Error
+
+Install **PySide6** instead:
+
+```bash
 pip install pyside6
-or python -m pip insatll pyside6
-(this should make the run_ui file work)
+```
 
-or 
+or
 
-install a anaconda enviroment less than or equal to a 3.11 and run the pip install requirements.txt in it. 
+```bash
+python -m pip install pyside6
+```
 
-### Files to Run
+This should allow the `run_ui.py` file to work properly.
 
-*UI File => Frontend  + Backend*
+### Alternative Method
+
+Create an **Anaconda environment with Python ≤ 3.11**, then install the dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## Files to Run
+
+### UI File (Frontend + Backend)
+
+```bash
 python run_ui.py
+```
 
-*Ops file => only backend*
+### Operations File (Backend Only)
+
+```bash
 python main.py
+```
 
-### License
+---
 
-Apace 2.0 License
-or 
-MIT License
-or 
-GPL License
+## License Options
+
+One of the following licenses may be used:
+
+* Apache 2.0 License
+* MIT License
+* GPL License
+
+
