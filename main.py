@@ -28,9 +28,12 @@ def main():
 
     contour = contour_data["contour"]
 
-    plot_contour(contour)
+    plot_contour(contour, show=False)
     generate_axi_mesh(contour)
-    visualize_msh("engine_axi.msh")
+    visualize_msh("engine_axi.msh", show=False)
+
+    import matplotlib.pyplot as plt
+    plt.show()
 
 
 if __name__ == "__main__":
