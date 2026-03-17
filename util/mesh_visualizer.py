@@ -2,7 +2,7 @@ import meshio
 import matplotlib.pyplot as plt
 
 
-def visualize_msh(filename):
+def visualize_msh(filename, show=True):
 
     mesh = meshio.read(filename)
 
@@ -14,6 +14,7 @@ def visualize_msh(filename):
         if cell.type == "triangle":
             cells = cell.data
 
+    plt.figure("2D Axisymmetric Nozzle Mesh")
     plt.triplot(
         points[:, 0],
         points[:, 1],
@@ -28,4 +29,5 @@ def visualize_msh(filename):
 
     plt.gca().set_aspect("equal")
 
-    plt.show()
+    if show:
+        plt.show()
