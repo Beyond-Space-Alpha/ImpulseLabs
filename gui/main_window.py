@@ -353,7 +353,20 @@ class ImpulseLabsWindow(QMainWindow):
         mesh = pv.read(tmp_path)
 
         self.pv_widget.clear()
-        self.pv_widget.add_mesh(mesh, color="silver", show_edges=True)
+
+        # Set black background
+        self.pv_widget.set_background("black")
+
+        # Add mesh
+        self.pv_widget.add_mesh(
+            mesh,
+            color="lightgray",
+            show_edges=True,
+            edge_color="black",
+            smooth_shading=True,
+            specular=0.5
+        )
+
         self.pv_widget.reset_camera()
 
         os.remove(tmp_path)
