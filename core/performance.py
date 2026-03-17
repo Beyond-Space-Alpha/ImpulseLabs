@@ -47,5 +47,5 @@ def throat_area(mdot, Pc, cstar):
 
 
 def diam_from_area(A):
-
+    
     return np.sqrt(4*A/np.pi)

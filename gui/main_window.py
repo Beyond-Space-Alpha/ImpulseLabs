@@ -11,12 +11,14 @@ from mesh.msh_generator import generate_axi_mesh
 import meshio
 
 
+# -----------------------------
+# PLOT CANVAS (DARK THEME)
+# -----------------------------
 class PlotCanvas(FigureCanvasQTAgg):
 
     def __init__(self, title):
 
         fig = Figure(facecolor="#121212")
-
         self.ax = fig.add_subplot(111)
 
         self.ax.set_facecolor("#121212")
@@ -26,6 +28,126 @@ class PlotCanvas(FigureCanvasQTAgg):
         super().__init__(fig)
 
 
+# -----------------------------
+# RANGE SLIDER (MIN-MAX SYSTEM)
+# -----------------------------
+class RangeSliderWidget(QWidget):
+
+    def __init__(self, label, min_default, max_default, scale=1):
+
+        super().__init__()
+
+        self.scale = scale
+
+        layout = QVBoxLayout()
+
+        layout.addWidget(QLabel(label))
+
+        # -------------------------
+        # ROW 1 → MIN | SLIDER | MAX
+        # -------------------------
+        row1 = QHBoxLayout()
+
+        self.min_box = QLineEdit(str(min_default))
+        self.min_box.setFixedWidth(60)
+
+        self.slider = QSlider(Qt.Horizontal)
+
+        self.max_box = QLineEdit(str(max_default))
+        self.max_box.setFixedWidth(60)
+
+        row1.addWidget(self.min_box)
+        row1.addWidget(self.slider)
+        row1.addWidget(self.max_box)
+
+        # -------------------------
+        # ROW 2 → VALUE SPINBOX
+        # -------------------------
+        row2 = QHBoxLayout()
+
+        row2.addWidget(QLabel("Value"))
+
+        self.value_box = QDoubleSpinBox()
+
+        self.value_box.setDecimals(4)
+        self.value_box.setSingleStep(0.1)
+
+        row2.addWidget(self.value_box)
+
+        layout.addLayout(row1)
+        layout.addLayout(row2)
+
+        self.setLayout(layout)
+
+        # INIT
+        self.update_slider()
+
+        # CONNECTIONS
+        self.min_box.editingFinished.connect(self.update_slider)
+        self.max_box.editingFinished.connect(self.update_slider)
+
+        self.slider.valueChanged.connect(self.sync_value_from_slider)
+        self.value_box.valueChanged.connect(self.sync_slider_from_value)
+
+    # -------------------------
+    # UPDATE SLIDER FROM MIN/MAX
+    # -------------------------
+    def update_slider(self):
+
+        try:
+            min_val = float(self.min_box.text())
+            max_val = float(self.max_box.text())
+
+            if min_val >= max_val:
+                self.min_box.setStyleSheet("background:#550000;")
+                return
+            else:
+                self.min_box.setStyleSheet("")
+
+            self.slider.setMinimum(int(min_val / self.scale))
+            self.slider.setMaximum(int(max_val / self.scale))
+
+            self.value_box.setMinimum(min_val)
+            self.value_box.setMaximum(max_val)
+
+            mid = (min_val + max_val) / 2
+
+            self.slider.setValue(int(mid / self.scale))
+            self.value_box.setValue(mid)
+
+        except:
+            pass
+
+    # -------------------------
+    # SLIDER → VALUE BOX
+    # -------------------------
+    def sync_value_from_slider(self):
+
+        val = self.slider.value() * self.scale
+
+        self.value_box.blockSignals(True)
+        self.value_box.setValue(val)
+        self.value_box.blockSignals(False)
+
+    # -------------------------
+    # VALUE BOX → SLIDER
+    # -------------------------
+    def sync_slider_from_value(self):
+
+        val = self.value_box.value()
+
+        self.slider.blockSignals(True)
+        self.slider.setValue(int(val / self.scale))
+        self.slider.blockSignals(False)
+
+    # -------------------------
+    def get_value(self):
+
+        return self.value_box.value()
+
+# -----------------------------
+# MAIN WINDOW
+# -----------------------------
 class ImpulseLabsWindow(QMainWindow):
 
     def __init__(self):
@@ -38,17 +160,13 @@ class ImpulseLabsWindow(QMainWindow):
         self.contour = None
 
         self.create_menu()
-
         self.create_layout()
-
         self.create_llm_panel()
-
         self.create_status()
 
-    # ------------------------------------------------
-    # MENU
-    # ------------------------------------------------
-
+    # -----------------------------
+    # MENU BAR
+    # -----------------------------
     def create_menu(self):
 
         menu = self.menuBar()
@@ -63,19 +181,15 @@ class ImpulseLabsWindow(QMainWindow):
         view_menu = menu.addMenu("View")
         view_menu.addAction("Fullscreen", self.toggle_fullscreen)
 
-        docs_menu = menu.addMenu("Documentation")
-        docs_menu.addAction("Open Docs")
-
-        help_menu = menu.addMenu("Help")
-        help_menu.addAction("User Guide")
+        menu.addMenu("Documentation")
+        menu.addMenu("Help")
 
         llm_menu = menu.addMenu("LLM")
         llm_menu.addAction("Toggle Chat", self.toggle_llm)
 
-    # ------------------------------------------------
+    # -----------------------------
     # MAIN LAYOUT
-    # ------------------------------------------------
-
+    # -----------------------------
     def create_layout(self):
 
         central = QWidget()
@@ -83,75 +197,67 @@ class ImpulseLabsWindow(QMainWindow):
         self.main_layout = QHBoxLayout()
 
         self.main_layout.addWidget(self.create_inputs(), 1)
-
         self.main_layout.addWidget(self.create_plots(), 3)
 
         central.setLayout(self.main_layout)
 
         self.setCentralWidget(central)
 
-    # ------------------------------------------------
+    # -----------------------------
     # INPUT PANEL
-    # ------------------------------------------------
-
+    # -----------------------------
     def create_inputs(self):
 
         panel = QVBoxLayout()
 
-        title = QLabel("Engine Inputs")
-        title.setStyleSheet("font-size:18px")
+        panel.addWidget(QLabel("Engine Inputs"))
 
-        panel.addWidget(title)
+        # RANGE SLIDERS
+        self.thrust = RangeSliderWidget("Thrust (N)", 100, 5000)
+        self.pressure = RangeSliderWidget("Chamber Pressure (bar)", 5, 100)
+        self.mr = RangeSliderWidget("Mixture Ratio", 1, 5)
 
-        self.thrust = self.slider("Thrust (N)", 100, 5000, 500)
-        self.pressure = self.slider("Chamber Pressure (bar)", 5, 100, 30)
-        self.mr = self.slider("Mixture Ratio", 10, 50, 25, scale=0.1)
-
-        panel.addWidget(self.thrust["widget"])
-        panel.addWidget(self.pressure["widget"])
-        panel.addWidget(self.mr["widget"])
+        panel.addWidget(self.thrust)
+        panel.addWidget(self.pressure)
+        panel.addWidget(self.mr)
 
         # OPTIONAL INPUTS
-
-        panel.addWidget(QLabel("Chamber Temperature (K)  [Optional]"))
+        panel.addWidget(QLabel("Chamber Temperature (K) [Optional]"))
         self.temp_input = QLineEdit()
-        self.temp_input.setPlaceholderText("Auto if empty")
+        self.temp_input.setPlaceholderText("Auto")
         panel.addWidget(self.temp_input)
 
-        panel.addWidget(QLabel("Contraction Ratio  [Optional]"))
+        panel.addWidget(QLabel("Contraction Ratio [Optional]"))
         self.contraction_input = QLineEdit()
-        self.contraction_input.setPlaceholderText("Auto if empty")
+        self.contraction_input.setPlaceholderText("Auto")
         panel.addWidget(self.contraction_input)
 
-        panel.addWidget(QLabel("Ambient Pressure (bar)  [Optional]"))
+        panel.addWidget(QLabel("Ambient Pressure (bar) [Optional]"))
         self.ambient_input = QLineEdit()
-        self.ambient_input.setPlaceholderText("Auto if empty")
+        self.ambient_input.setPlaceholderText("Auto")
         panel.addWidget(self.ambient_input)
 
         # BUTTONS
-
         self.run_button = QPushButton("Run Simulation")
         self.mesh_button = QPushButton("Generate Mesh")
-
-        panel.addWidget(self.run_button)
-        panel.addWidget(self.mesh_button)
 
         self.run_button.clicked.connect(self.run_simulation)
         self.mesh_button.clicked.connect(self.generate_mesh)
 
-        # DESCRIPTION
+        panel.addWidget(self.run_button)
+        panel.addWidget(self.mesh_button)
 
+        # DESCRIPTION
         desc = QTextEdit()
         desc.setReadOnly(True)
-
         desc.setText(
-            "Thrust (N)\nDesired engine thrust.\n\n"
-            "Chamber Pressure (bar)\nPressure inside combustion chamber.\n\n"
-            "Mixture Ratio\nOxidizer/Fuel mass ratio.\n\n"
-            "Optional Inputs\nIf left blank, ImpulseLabs assumes standard values."
+            "Thrust: Desired force output (N)\n"
+            "Chamber Pressure: Pressure inside chamber (bar)\n"
+            "Mixture Ratio: Oxidizer/Fuel ratio\n\n"
+            "Optional inputs will be assumed if not provided."
         )
 
-        panel.addWidget(QLabel("Parameter Description"))
+        panel.addWidget(QLabel("Description"))
         panel.addWidget(desc)
 
         widget = QWidget()
@@ -159,46 +265,9 @@ class ImpulseLabsWindow(QMainWindow):
 
         return widget
 
-    # ------------------------------------------------
-    # SLIDER
-    # ------------------------------------------------
-
-    def slider(self, label, minv, maxv, value, scale=1):
-
-        layout = QVBoxLayout()
-
-        layout.addWidget(QLabel(label))
-
-        row = QHBoxLayout()
-
-        slider = QSlider(Qt.Horizontal)
-        slider.setRange(minv, maxv)
-        slider.setValue(value)
-
-        textbox = QLineEdit(str(value * scale))
-
-        slider.valueChanged.connect(
-            lambda v: textbox.setText(str(v * scale))
-        )
-
-        textbox.editingFinished.connect(
-            lambda: slider.setValue(int(float(textbox.text()) / scale))
-        )
-
-        row.addWidget(slider)
-        row.addWidget(textbox)
-
-        layout.addLayout(row)
-
-        widget = QWidget()
-        widget.setLayout(layout)
-
-        return {"widget": widget, "slider": slider, "textbox": textbox}
-
-    # ------------------------------------------------
+    # -----------------------------
     # PLOTS
-    # ------------------------------------------------
-
+    # -----------------------------
     def create_plots(self):
 
         layout = QHBoxLayout()
@@ -214,19 +283,15 @@ class ImpulseLabsWindow(QMainWindow):
 
         return container
 
-    # ------------------------------------------------
-    # LLM PANEL
-    # ------------------------------------------------
-
+    # -----------------------------
+    # LLM PANEL (RIGHT SIDE)
+    # -----------------------------
     def create_llm_panel(self):
 
-        self.llm_panel = QDockWidget("Impulse Labs Assistant", self)
-
-        self.llm_panel.setAllowedAreas(Qt.RightDockWidgetArea)
+        self.llm_panel = QDockWidget("LLM Assistant", self)
 
         chat = QTextEdit()
-
-        chat.setPlaceholderText("Ask questions about propulsion, equations, or geometry...")
+        chat.setPlaceholderText("Ask anything...")
 
         self.llm_panel.setWidget(chat)
 
@@ -236,28 +301,23 @@ class ImpulseLabsWindow(QMainWindow):
 
     def toggle_llm(self):
 
-        if self.llm_panel.isVisible():
-            self.llm_panel.hide()
-        else:
-            self.llm_panel.show()
+        self.llm_panel.setVisible(not self.llm_panel.isVisible())
 
-    # ------------------------------------------------
+    # -----------------------------
     # STATUS BAR
-    # ------------------------------------------------
-
+    # -----------------------------
     def create_status(self):
 
-        self.status = QLabel("Geometry dimensions will appear here (SI units).")
+        self.status = QLabel("Geometry dimensions (SI Units)")
 
         self.statusBar().addWidget(self.status)
 
-    # ------------------------------------------------
+    # -----------------------------
     # SIMULATION
-    # ------------------------------------------------
-
+    # -----------------------------
     def run_simulation(self):
 
-        thrust = self.thrust["slider"].value()
+        thrust = self.thrust.get_value()
 
         rt = 0.01 + thrust / 20000
         re = rt * 3
@@ -283,22 +343,19 @@ class ImpulseLabsWindow(QMainWindow):
         y = [p[1] for p in self.contour]
 
         self.geometry_plot.ax.clear()
-
         self.geometry_plot.ax.plot(x, y)
         self.geometry_plot.ax.plot(x, [-v for v in y])
-
         self.geometry_plot.ax.set_aspect("equal")
 
         self.geometry_plot.draw()
 
         self.status.setText(
-            f"Throat Radius: {rt:.4f} m | Exit Radius: {re:.4f} m | Chamber Radius: {rc:.4f} m | Nozzle Length: {L:.4f} m"
+            f"rt={rt:.4f} m | re={re:.4f} m | rc={rc:.4f} m | L={L:.4f} m"
         )
 
-    # ------------------------------------------------
+    # -----------------------------
     # MESH
-    # ------------------------------------------------
-
+    # -----------------------------
     def generate_mesh(self):
 
         if self.contour is None:
@@ -320,18 +377,12 @@ class ImpulseLabsWindow(QMainWindow):
             return
 
         self.mesh_plot.ax.clear()
-
         self.mesh_plot.ax.triplot(points[:, 0], points[:, 1], cells, linewidth=0.5)
-
         self.mesh_plot.ax.set_aspect("equal")
 
         self.mesh_plot.draw()
 
-    # ------------------------------------------------
-
+    # -----------------------------
     def toggle_fullscreen(self):
 
-        if self.isFullScreen():
-            self.showNormal()
-        else:
-            self.showFullScreen()
+        self.showNormal() if self.isFullScreen() else self.showFullScreen()
