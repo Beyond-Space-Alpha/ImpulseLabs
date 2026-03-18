@@ -6,7 +6,5 @@ gmsh
 pyvistaqt
 meshio
 rocketcea
-PyQt5
-PyQt5-tools
 pyside6
 qdarkstyle
