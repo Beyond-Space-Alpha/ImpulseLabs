@@ -3,6 +3,7 @@ scipy
 matplotlib
 cadquery
 gmsh
+pyvistaqt
 meshio
 rocketcea
 PyQt5

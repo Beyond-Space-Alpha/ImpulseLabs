@@ -1,12 +1,388 @@
-import sys
-from PyQt5.QtWidgets import QApplication
-from gui.main_window_safe_version import MainWindow
+from PySide6.QtWidgets import *
+from PySide6.QtCore import Qt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+
+from geometry.rao import RaoBell
+from geometry.converging import converging_parabola
+from geometry.throat import throat_fillet
+from mesh.msh_generator import generate_axi_mesh
+
+import meshio
 
 
-app = QApplication(sys.argv)
+# -----------------------------
+# PLOT CANVAS (DARK THEME)
+# -----------------------------
+class PlotCanvas(FigureCanvasQTAgg):
 
-window = MainWindow()
+    def __init__(self, title):
 
-window.show()
+        fig = Figure(facecolor="#121212")
+        self.ax = fig.add_subplot(111)
 
-sys.exit(app.exec_())
+        self.ax.set_facecolor("#121212")
+        self.ax.set_title(title, color="white")
+        self.ax.tick_params(colors="white")
+
+        super().__init__(fig)
+
+
+# -----------------------------
+# RANGE SLIDER (MIN-MAX SYSTEM)
+# -----------------------------
+class RangeSliderWidget(QWidget):
+
+    def __init__(self, label, min_default, max_default, scale=1):
+
+        super().__init__()
+
+        self.scale = scale
+
+        layout = QVBoxLayout()
+
+        layout.addWidget(QLabel(label))
+
+        # -------------------------
+        # ROW 1 → MIN | SLIDER | MAX
+        # -------------------------
+        row1 = QHBoxLayout()
+
+        self.min_box = QLineEdit(str(min_default))
+        self.min_box.setFixedWidth(60)
+
+        self.slider = QSlider(Qt.Horizontal)
+
+        self.max_box = QLineEdit(str(max_default))
+        self.max_box.setFixedWidth(60)
+
+        row1.addWidget(self.min_box)
+        row1.addWidget(self.slider)
+        row1.addWidget(self.max_box)
+
+        # -------------------------
+        # ROW 2 → VALUE SPINBOX
+        # -------------------------
+        row2 = QHBoxLayout()
+
+        row2.addWidget(QLabel("Value"))
+
+        self.value_box = QDoubleSpinBox()
+
+        self.value_box.setDecimals(4)
+        self.value_box.setSingleStep(0.1)
+
+        row2.addWidget(self.value_box)
+
+        layout.addLayout(row1)
+        layout.addLayout(row2)
+
+        self.setLayout(layout)
+
+        # INIT
+        self.update_slider()
+
+        # CONNECTIONS
+        self.min_box.editingFinished.connect(self.update_slider)
+        self.max_box.editingFinished.connect(self.update_slider)
+
+        self.slider.valueChanged.connect(self.sync_value_from_slider)
+        self.value_box.valueChanged.connect(self.sync_slider_from_value)
+
+    # -------------------------
+    # UPDATE SLIDER FROM MIN/MAX
+    # -------------------------
+    def update_slider(self):
+
+        try:
+            min_val = float(self.min_box.text())
+            max_val = float(self.max_box.text())
+
+            if min_val >= max_val:
+                self.min_box.setStyleSheet("background:#550000;")
+                return
+            else:
+                self.min_box.setStyleSheet("")
+
+            self.slider.setMinimum(int(min_val / self.scale))
+            self.slider.setMaximum(int(max_val / self.scale))
+
+            self.value_box.setMinimum(min_val)
+            self.value_box.setMaximum(max_val)
+
+            mid = (min_val + max_val) / 2
+
+            self.slider.setValue(int(mid / self.scale))
+            self.value_box.setValue(mid)
+
+        except:
+            pass
+
+    # -------------------------
+    # SLIDER → VALUE BOX
+    # -------------------------
+    def sync_value_from_slider(self):
+
+        val = self.slider.value() * self.scale
+
+        self.value_box.blockSignals(True)
+        self.value_box.setValue(val)
+        self.value_box.blockSignals(False)
+
+    # -------------------------
+    # VALUE BOX → SLIDER
+    # -------------------------
+    def sync_slider_from_value(self):
+
+        val = self.value_box.value()
+
+        self.slider.blockSignals(True)
+        self.slider.setValue(int(val / self.scale))
+        self.slider.blockSignals(False)
+
+    # -------------------------
+    def get_value(self):
+
+        return self.value_box.value()
+
+# -----------------------------
+# MAIN WINDOW
+# -----------------------------
+class ImpulseLabsWindow(QMainWindow):
+
+    def __init__(self):
+
+        super().__init__()
+
+        self.setWindowTitle("Impulse Labs")
+        self.resize(1500, 850)
+
+        self.contour = None
+
+        self.create_menu()
+        self.create_layout()
+        self.create_llm_panel()
+        self.create_status()
+
+    # -----------------------------
+    # MENU BAR
+    # -----------------------------
+    def create_menu(self):
+
+        menu = self.menuBar()
+
+        file_menu = menu.addMenu("File")
+        file_menu.addAction("New")
+        file_menu.addAction("Open Contour")
+        file_menu.addAction("Open Mesh")
+        file_menu.addAction("Export")
+        file_menu.addAction("Download")
+
+        view_menu = menu.addMenu("View")
+        view_menu.addAction("Fullscreen", self.toggle_fullscreen)
+
+        menu.addMenu("Documentation")
+        menu.addMenu("Help")
+
+        llm_menu = menu.addMenu("LLM")
+        llm_menu.addAction("Toggle Chat", self.toggle_llm)
+
+    # -----------------------------
+    # MAIN LAYOUT
+    # -----------------------------
+    def create_layout(self):
+
+        central = QWidget()
+
+        self.main_layout = QHBoxLayout()
+
+        self.main_layout.addWidget(self.create_inputs(), 1)
+        self.main_layout.addWidget(self.create_plots(), 3)
+
+        central.setLayout(self.main_layout)
+
+        self.setCentralWidget(central)
+
+    # -----------------------------
+    # INPUT PANEL
+    # -----------------------------
+    def create_inputs(self):
+
+        panel = QVBoxLayout()
+
+        panel.addWidget(QLabel("Engine Inputs"))
+
+        # RANGE SLIDERS
+        self.thrust = RangeSliderWidget("Thrust (N)", 100, 5000)
+        self.pressure = RangeSliderWidget("Chamber Pressure (bar)", 5, 100)
+        self.mr = RangeSliderWidget("Mixture Ratio", 1, 5)
+
+        panel.addWidget(self.thrust)
+        panel.addWidget(self.pressure)
+        panel.addWidget(self.mr)
+
+        # OPTIONAL INPUTS
+        panel.addWidget(QLabel("Chamber Temperature (K) [Optional]"))
+        self.temp_input = QLineEdit()
+        self.temp_input.setPlaceholderText("Auto")
+        panel.addWidget(self.temp_input)
+
+        panel.addWidget(QLabel("Contraction Ratio [Optional]"))
+        self.contraction_input = QLineEdit()
+        self.contraction_input.setPlaceholderText("Auto")
+        panel.addWidget(self.contraction_input)
+
+        panel.addWidget(QLabel("Ambient Pressure (bar) [Optional]"))
+        self.ambient_input = QLineEdit()
+        self.ambient_input.setPlaceholderText("Auto")
+        panel.addWidget(self.ambient_input)
+
+        # BUTTONS
+        self.run_button = QPushButton("Run Simulation")
+        self.mesh_button = QPushButton("Generate Mesh")
+
+        self.run_button.clicked.connect(self.run_simulation)
+        self.mesh_button.clicked.connect(self.generate_mesh)
+
+        panel.addWidget(self.run_button)
+        panel.addWidget(self.mesh_button)
+
+        # DESCRIPTION
+        desc = QTextEdit()
+        desc.setReadOnly(True)
+        desc.setText(
+            "Thrust: Desired force output (N)\n"
+            "Chamber Pressure: Pressure inside chamber (bar)\n"
+            "Mixture Ratio: Oxidizer/Fuel ratio\n\n"
+            "Optional inputs will be assumed if not provided."
+        )
+
+        panel.addWidget(QLabel("Description"))
+        panel.addWidget(desc)
+
+        widget = QWidget()
+        widget.setLayout(panel)
+
+        return widget
+
+    # -----------------------------
+    # PLOTS
+    # -----------------------------
+    def create_plots(self):
+
+        layout = QHBoxLayout()
+
+        self.geometry_plot = PlotCanvas("Nozzle Geometry")
+        self.mesh_plot = PlotCanvas("CFD Mesh")
+
+        layout.addWidget(self.geometry_plot)
+        layout.addWidget(self.mesh_plot)
+
+        container = QWidget()
+        container.setLayout(layout)
+
+        return container
+
+    # -----------------------------
+    # LLM PANEL (RIGHT SIDE)
+    # -----------------------------
+    def create_llm_panel(self):
+
+        self.llm_panel = QDockWidget("LLM Assistant", self)
+
+        chat = QTextEdit()
+        chat.setPlaceholderText("Ask anything...")
+
+        self.llm_panel.setWidget(chat)
+
+        self.addDockWidget(Qt.RightDockWidgetArea, self.llm_panel)
+
+        self.llm_panel.hide()
+
+    def toggle_llm(self):
+
+        self.llm_panel.setVisible(not self.llm_panel.isVisible())
+
+    # -----------------------------
+    # STATUS BAR
+    # -----------------------------
+    def create_status(self):
+
+        self.status = QLabel("Geometry dimensions (SI Units)")
+
+        self.statusBar().addWidget(self.status)
+
+    # -----------------------------
+    # SIMULATION
+    # -----------------------------
+    def run_simulation(self):
+
+        thrust = self.thrust.get_value()
+
+        rt = 0.01 + thrust / 20000
+        re = rt * 3
+        rc = rt * 2
+
+        chamber_length = 0.05
+
+        chamber = [(-chamber_length, rc), (0, rc)]
+
+        conv = converging_parabola(rc, rt, 0, 0.03)
+
+        throat = throat_fillet(rt, 0.01, conv[-1][0])
+
+        rao = RaoBell()
+
+        L = rao.length(rt, re)
+
+        bell = rao.contour(rt, re, L, throat[-1][0])
+
+        self.contour = chamber + conv[1:] + throat[1:] + bell[1:]
+
+        x = [p[0] for p in self.contour]
+        y = [p[1] for p in self.contour]
+
+        self.geometry_plot.ax.clear()
+        self.geometry_plot.ax.plot(x, y)
+        self.geometry_plot.ax.plot(x, [-v for v in y])
+        self.geometry_plot.ax.set_aspect("equal")
+
+        self.geometry_plot.draw()
+
+        self.status.setText(
+            f"rt={rt:.4f} m | re={re:.4f} m | rc={rc:.4f} m | L={L:.4f} m"
+        )
+
+    # -----------------------------
+    # MESH
+    # -----------------------------
+    def generate_mesh(self):
+
+        if self.contour is None:
+            return
+
+        generate_axi_mesh(self.contour)
+
+        mesh = meshio.read("engine_axi.msh")
+
+        points = mesh.points[:, :2]
+
+        cells = None
+
+        for c in mesh.cells:
+            if c.type.startswith("triangle"):
+                cells = c.data[:, :3]
+
+        if cells is None:
+            return
+
+        self.mesh_plot.ax.clear()
+        self.mesh_plot.ax.triplot(points[:, 0], points[:, 1], cells, linewidth=0.5)
+        self.mesh_plot.ax.set_aspect("equal")
+
+        self.mesh_plot.draw()
+
+    # -----------------------------
+    def toggle_fullscreen(self):
+
+        self.showNormal() if self.isFullScreen() else self.showFullScreen()
