@@ -9,4 +9,6 @@ rocketcea
 PyQt5
 PyQt5-tools
 pyside6
+PyQt6-WebEngine
+markdown
 qdarkstyle

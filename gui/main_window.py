@@ -1,17 +1,47 @@
-# ui/main_window.py
-
 from PySide6.QtWidgets import *
 from PySide6.QtCore import Qt
+from PySide6.QtWebEngineWidgets import QWebEngineView
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 import numpy as np
-import cadquery as cq
-import meshio
+import markdown
 
 from geometry.rao import RaoBell
 from geometry.converging import converging_parabola
 from geometry.throat import throat_fillet
+
+
+# -------------------------
+# Markdown + LaTeX Viewer
+# -------------------------
+class MarkdownViewer(QWebEngineView):
+
+    def set_markdown(self, md_text):
+
+        html_body = markdown.markdown(md_text)
+
+        html = f"""
+        <html>
+        <head>
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+        <style>
+        body {{
+            background-color: #111;
+            color: white;
+            font-family: Arial;
+            padding: 15px;
+        }}
+        </style>
+        </head>
+        <body>
+        {html_body}
+        </body>
+        </html>
+        """
+
+        self.setHtml(html)
 
 
 # -------------------------
@@ -63,10 +93,11 @@ class RangeInput(QWidget):
 
     def update_all(self):
         mn, mx = float(self.min.text()), float(self.max.text())
-        if mn >= mx: return
+        if mn >= mx:
+            return
         self.slider.setMinimum(int(mn))
         self.slider.setMaximum(int(mx))
-        mid = (mn+mx)/2
+        mid = (mn + mx) / 2
         self.slider.setValue(int(mid))
         self.val.setValue(mid)
 
@@ -98,10 +129,10 @@ class ImpulseLabsWindow(QMainWindow):
 
         layout = QHBoxLayout()
 
-        layout.addWidget(self.input_col(),1)
-        layout.addWidget(self.learning_col(),1)
-        layout.addWidget(self.plot_col(),3)
-        layout.addWidget(self.llm_col(),1)
+        layout.addWidget(self.input_col(), 1)
+        layout.addWidget(self.learning_col(), 1)
+        layout.addWidget(self.plot_col(), 3)
+        layout.addWidget(self.llm_col(), 1)
 
         w = QWidget()
         w.setLayout(layout)
@@ -117,37 +148,34 @@ class ImpulseLabsWindow(QMainWindow):
 
         layout.addWidget(QLabel("Inputs"))
 
-        self.thrust = RangeInput("Thrust",100,5000)
-        self.pc = RangeInput("Chamber Pressure",5,100)
-        self.mr = RangeInput("Mixture Ratio",1,5)
+        self.thrust = RangeInput("Thrust", 100, 5000)
+        self.pc = RangeInput("Chamber Pressure", 5, 100)
+        self.mr = RangeInput("Mixture Ratio", 1, 5)
 
         layout.addWidget(self.thrust)
         layout.addWidget(self.pc)
         layout.addWidget(self.mr)
 
         self.prop = QComboBox()
-        self.prop.addItems(["LOX/RP1","LOX/LH2","N2O/CH4"])
+        self.prop.addItems(["LOX/RP1", "LOX/LH2", "N2O/CH4"])
         layout.addWidget(self.prop)
 
-        # optional
-        for name in ["Ox Temp","Fuel Temp","Contraction Ratio","Ambient Pressure"]:
+        for name in ["Ox Temp", "Fuel Temp", "Contraction Ratio", "Ambient Pressure"]:
             box = QLineEdit()
-            box.setPlaceholderText(name+" (optional)")
+            box.setPlaceholderText(name + " (optional)")
             layout.addWidget(box)
 
-        # description
         desc = QTextEdit()
         desc.setReadOnly(True)
         desc.setText("Defines propulsion conditions and geometry.")
         layout.addWidget(desc)
 
-        btn = QPushButton("Explain (LLM)")
-        layout.addWidget(btn)
+        layout.addWidget(QPushButton("Explain (LLM)"))
 
         return QWidget(layout=layout)
 
     # -------------------------
-    # LEARNING COLUMN
+    # LEARNING COLUMN (FIXED)
     # -------------------------
     def learning_col(self):
 
@@ -156,18 +184,45 @@ class ImpulseLabsWindow(QMainWindow):
         self.learn_toggle = QCheckBox("Learning Mode")
         layout.addWidget(self.learn_toggle)
 
-        self.learn_text = QTextEdit()
-        self.learn_text.setMarkdown(
-            "## Isentropic Flow\n"
-            "$T/T_0 = 1/(1+(γ-1)/2M^2)$"
-        )
+        self.learn_view = MarkdownViewer()
 
-        layout.addWidget(self.learn_text)
+        self.learn_view.set_markdown("""
+# Isentropic Flow
 
-        reload = QPushButton("Reload")
-        layout.addWidget(reload)
+$$
+T/T_0 = \\frac{1}{1 + \\frac{\\gamma - 1}{2} M^2}
+$$
+
+$$
+P/P_0 = (T/T_0)^{\\frac{\\gamma}{\\gamma - 1}}
+$$
+""")
+
+        layout.addWidget(self.learn_view)
+
+        reload_btn = QPushButton("Reload")
+        reload_btn.clicked.connect(self.reload_learning)
+        layout.addWidget(reload_btn)
 
         return QWidget(layout=layout)
+
+    def reload_learning(self):
+
+        if not self.learn_toggle.isChecked():
+            self.learn_view.set_markdown("Learning Mode Disabled")
+            return
+
+        self.learn_view.set_markdown("""
+# Rao Nozzle Approximation
+
+$$
+y = ax^2 + bx + c
+$$
+
+$$
+\\frac{dy}{dx} = \\tan(\\theta_e)
+$$
+""")
 
     # -------------------------
     # PLOT COLUMN (FIXED)
@@ -179,11 +234,10 @@ class ImpulseLabsWindow(QMainWindow):
         self.plot = PlotCanvas()
         layout.addWidget(self.plot)
 
-        # toggle
         row = QHBoxLayout()
 
         self.mode = QComboBox()
-        self.mode.addItems(["Mach","Temperature","Pressure"])
+        self.mode.addItems(["Mach", "Temperature", "Pressure"])
         self.mode.currentIndexChanged.connect(self.run_sim)
 
         row.addWidget(QLabel("Field"))
@@ -218,16 +272,12 @@ class ImpulseLabsWindow(QMainWindow):
 
         return QWidget(layout=layout)
 
-    # -------------------------
-    # API POPUP
-    # -------------------------
     def api_popup(self):
 
         dlg = QDialog(self)
         dlg.setWindowTitle("API Config")
 
         l = QVBoxLayout()
-
         l.addWidget(QLineEdit("API Key"))
         l.addWidget(QLineEdit("Secret"))
         l.addWidget(QComboBox())
@@ -236,64 +286,62 @@ class ImpulseLabsWindow(QMainWindow):
         dlg.exec()
 
     # -------------------------
-    # SIMULATION CORE (FIXED)
+    # SIMULATION (FIXED)
     # -------------------------
     def run_sim(self):
 
         thrust = self.thrust.get()
 
-        rt = 0.01 + thrust/20000
-        re = rt*3
-        rc = rt*2
+        rt = 0.01 + thrust / 20000
+        re = rt * 3
+        rc = rt * 2
 
-        conv = converging_parabola(rc,rt,0,0.03)
-        throat = throat_fillet(rt,0.01,conv[-1][0])
+        conv = converging_parabola(rc, rt, 0, 0.03)
+        throat = throat_fillet(rt, 0.01, conv[-1][0])
         rao = RaoBell()
 
-        L = rao.length(rt,re)
-        bell = rao.contour(rt,re,L,throat[-1][0])
+        L = rao.length(rt, re)
+        bell = rao.contour(rt, re, L, throat[-1][0])
 
         contour = conv + throat + bell
 
         x = np.array([p[0] for p in contour])
         y = np.array([p[1] for p in contour])
 
-        # flow
-        A = np.pi*y**2
+        A = np.pi * y**2
         At = min(A)
 
-        M = np.sqrt(A/At)
-        T = 1/(1+0.2*M**2)
+        M = np.sqrt(A / At)
+        T = 1 / (1 + 0.2 * M**2)
         P = T**3.5
 
-        if self.mode.currentText()=="Mach":
+        if self.mode.currentText() == "Mach":
             Z, cmap = M, "viridis"
-        elif self.mode.currentText()=="Temperature":
+        elif self.mode.currentText() == "Temperature":
             Z, cmap = T, "inferno"
         else:
             Z, cmap = P, "cividis"
 
-        X,Yg = np.meshgrid(x,np.linspace(-max(y),max(y),200))
-        Zg = np.tile(Z,(200,1))
+        X, Yg = np.meshgrid(x, np.linspace(-max(y), max(y), 200))
+        Zg = np.tile(Z, (200, 1))
 
-        # mask outside nozzle
-        mask = np.abs(Yg) <= np.interp(X[0],x,y)
+        mask = np.abs(Yg) <= np.interp(X[0], x, y)
         Zg[~mask] = np.nan
 
         self.plot.ax.clear()
 
-        self.plot.ax.plot(x,y,color="white")
-        self.plot.ax.plot(x,-y,color="white")
+        self.plot.ax.plot(x, y, color="white")
+        self.plot.ax.plot(x, -y, color="white")
 
         im = self.plot.ax.imshow(
             Zg,
-            extent=[x.min(),x.max(),-max(y),max(y)],
+            extent=[x.min(), x.max(), -max(y), max(y)],
             cmap=cmap,
             origin="lower",
             aspect="auto"
         )
 
-        self.plot.figure.colorbar(im,ax=self.plot.ax)
+        self.plot.figure.colorbar(im, ax=self.plot.ax)
 
         self.plot.ax.set_xlabel("Axial Length")
         self.plot.ax.set_ylabel("Radius")
@@ -305,7 +353,7 @@ class ImpulseLabsWindow(QMainWindow):
         )
 
     # -------------------------
-    # TAB 2 EXPORT
+    # EXPORT TAB
     # -------------------------
     def export_tab(self):
 
