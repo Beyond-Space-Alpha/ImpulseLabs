@@ -1,417 +1,372 @@
 from PySide6.QtWidgets import *
 from PySide6.QtCore import Qt
+from PySide6.QtWebEngineWidgets import QWebEngineView
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 import numpy as np
-import meshio
-import cadquery as cq
-import pyvista as pv
-from pyvistaqt import QtInteractor
-import tempfile
-import os
+import markdown
 
 from geometry.rao import RaoBell
 from geometry.converging import converging_parabola
 from geometry.throat import throat_fillet
-from mesh.msh_generator import generate_axi_mesh
 
 
-# -----------------------------
-# PLOT CANVAS
-# -----------------------------
+# -------------------------
+# Markdown + LaTeX Viewer
+# -------------------------
+class MarkdownViewer(QWebEngineView):
+
+    def set_markdown(self, md_text):
+
+        html_body = markdown.markdown(md_text)
+
+        html = f"""
+        <html>
+        <head>
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+        <style>
+        body {{
+            background-color: #111;
+            color: white;
+            font-family: Arial;
+            padding: 15px;
+        }}
+        </style>
+        </head>
+        <body>
+        {html_body}
+        </body>
+        </html>
+        """
+
+        self.setHtml(html)
+
+
+# -------------------------
+# Plot Canvas
+# -------------------------
 class PlotCanvas(FigureCanvasQTAgg):
-
-    def __init__(self, title):
-
-        fig = Figure(facecolor="#121212")
+    def __init__(self):
+        fig = Figure(facecolor="#111")
         self.ax = fig.add_subplot(111)
-
-        self.ax.set_facecolor("#121212")
-        self.ax.set_title(title, color="white")
+        self.ax.set_facecolor("#111")
         self.ax.tick_params(colors="white")
-
         super().__init__(fig)
 
 
-# -----------------------------
-# RANGE SLIDER (MIN-MAX + VALUE)
-# -----------------------------
-class RangeSliderWidget(QWidget):
-
-    def __init__(self, label, min_default, max_default):
-
+# -------------------------
+# Range Input
+# -------------------------
+class RangeInput(QWidget):
+    def __init__(self, label, mn, mx):
         super().__init__()
 
         layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignTop)
+
         layout.addWidget(QLabel(label))
 
         row = QHBoxLayout()
 
-        self.min_box = QLineEdit(str(min_default))
+        self.min = QLineEdit(str(mn))
         self.slider = QSlider(Qt.Horizontal)
-        self.max_box = QLineEdit(str(max_default))
+        self.max = QLineEdit(str(mx))
+        self.val = QDoubleSpinBox()
 
-        self.value_box = QDoubleSpinBox()
-        self.value_box.setDecimals(4)
-
-        row.addWidget(self.min_box)
+        row.addWidget(self.min)
         row.addWidget(self.slider)
-        row.addWidget(self.max_box)
+        row.addWidget(self.max)
 
         layout.addLayout(row)
-        layout.addWidget(self.value_box)
+        layout.addWidget(self.val)
 
         self.setLayout(layout)
 
-        self.update_slider()
+        self.update_all()
 
-        self.min_box.editingFinished.connect(self.update_slider)
-        self.max_box.editingFinished.connect(self.update_slider)
-        self.slider.valueChanged.connect(self.sync_value)
-        self.value_box.valueChanged.connect(self.sync_slider)
+        self.min.editingFinished.connect(self.update_all)
+        self.max.editingFinished.connect(self.update_all)
+        self.slider.valueChanged.connect(lambda: self.val.setValue(self.slider.value()))
+        self.val.valueChanged.connect(lambda: self.slider.setValue(int(self.val.value())))
 
-    def update_slider(self):
+    def update_all(self):
+        mn, mx = float(self.min.text()), float(self.max.text())
+        if mn >= mx:
+            return
+        self.slider.setMinimum(int(mn))
+        self.slider.setMaximum(int(mx))
+        mid = (mn + mx) / 2
+        self.slider.setValue(int(mid))
+        self.val.setValue(mid)
 
-        try:
-            min_v = float(self.min_box.text())
-            max_v = float(self.max_box.text())
-
-            if min_v >= max_v:
-                return
-
-            self.slider.setMinimum(int(min_v))
-            self.slider.setMaximum(int(max_v))
-
-            mid = (min_v + max_v) / 2
-
-            self.slider.setValue(int(mid))
-            self.value_box.setValue(mid)
-
-        except:
-            pass
-
-    def sync_value(self):
-        self.value_box.setValue(self.slider.value())
-
-    def sync_slider(self):
-        self.slider.setValue(int(self.value_box.value()))
-
-    def get_value(self):
-        return self.value_box.value()
+    def get(self):
+        return self.val.value()
 
 
-# -----------------------------
+# -------------------------
 # MAIN WINDOW
-# -----------------------------
+# -------------------------
 class ImpulseLabsWindow(QMainWindow):
 
     def __init__(self):
-
         super().__init__()
 
         self.setWindowTitle("Impulse Labs")
-        self.resize(1600, 900)
+        self.resize(1800, 900)
 
-        self.contour = None
-        self.current_nozzle = None
+        self.tabs = QTabWidget()
+        self.setCentralWidget(self.tabs)
 
-        self.create_menu()
-        self.create_layout()
-        self.create_llm_panel()
-        self.create_status()
+        self.tabs.addTab(self.sim_tab(), "Simulation")
+        self.tabs.addTab(self.export_tab(), "Export")
 
-    # -----------------------------
-    # MENU BAR
-    # -----------------------------
-    def create_menu(self):
+    # -------------------------
+    # TAB 1
+    # -------------------------
+    def sim_tab(self):
 
-        menu = self.menuBar()
+        layout = QHBoxLayout()
 
-        menu.addMenu("File")
-        menu.addMenu("View")
-        menu.addMenu("Documentation")
-        menu.addMenu("Help")
+        layout.addWidget(self.input_col(), 1)
+        layout.addWidget(self.learning_col(), 1)
+        layout.addWidget(self.plot_col(), 3)
+        layout.addWidget(self.llm_col(), 1)
 
-        llm_menu = menu.addMenu("LLM")
-        llm_menu.addAction("Toggle Chat", self.toggle_llm)
+        w = QWidget()
+        w.setLayout(layout)
+        return w
 
-    # -----------------------------
-    # LAYOUT
-    # -----------------------------
-    def create_layout(self):
-
-        main = QHBoxLayout()
-
-        main.addWidget(self.create_inputs(), 1)
-        main.addWidget(self.create_plots(), 3)
-
-        container = QWidget()
-        container.setLayout(main)
-
-        self.setCentralWidget(container)
-
-    # -----------------------------
-    # INPUT PANEL (RESTORED)
-    # -----------------------------
-    def create_inputs(self):
+    # -------------------------
+    # INPUT COLUMN
+    # -------------------------
+    def input_col(self):
 
         layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignTop)
 
-        layout.addWidget(QLabel("Engine Inputs"))
+        layout.addWidget(QLabel("Inputs"))
 
-        self.thrust = RangeSliderWidget("Thrust (N)", 100, 5000)
-        self.pressure = RangeSliderWidget("Chamber Pressure", 5, 100)
-        self.mr = RangeSliderWidget("Mixture Ratio", 1, 5)
+        self.thrust = RangeInput("Thrust", 100, 5000)
+        self.pc = RangeInput("Chamber Pressure", 5, 100)
+        self.mr = RangeInput("Mixture Ratio", 1, 5)
 
         layout.addWidget(self.thrust)
-        layout.addWidget(self.pressure)
+        layout.addWidget(self.pc)
         layout.addWidget(self.mr)
 
-        # OPTIONAL INPUTS
-        self.temp = QLineEdit()
-        self.temp.setPlaceholderText("Chamber Temp (optional)")
+        self.prop = QComboBox()
+        self.prop.addItems(["LOX/RP1", "LOX/LH2", "N2O/CH4"])
+        layout.addWidget(self.prop)
 
-        self.contraction = QLineEdit()
-        self.contraction.setPlaceholderText("Contraction Ratio (optional)")
-
-        self.ambient = QLineEdit()
-        self.ambient.setPlaceholderText("Ambient Pressure (optional)")
-
-        layout.addWidget(self.temp)
-        layout.addWidget(self.contraction)
-        layout.addWidget(self.ambient)
-
-        # BUTTONS
-        self.run_btn = QPushButton("Run Simulation")
-        self.mesh_btn = QPushButton("Generate Mesh")
-        self.export_btn = QPushButton("Export STEP")
-
-        self.run_btn.clicked.connect(self.run_simulation)
-        self.mesh_btn.clicked.connect(self.generate_mesh)
-        self.export_btn.clicked.connect(self.export_step)
-
-        layout.addWidget(self.run_btn)
-        layout.addWidget(self.mesh_btn)
-        layout.addWidget(self.export_btn)
-
-        # EQUATIONS
-        layout.addWidget(QLabel("Equations"))
-
-        eq = QTextEdit()
-        eq.setReadOnly(True)
-        eq.setText(
-            "1D Isentropic Flow:\n"
-            "T/T0 = 1/(1 + (γ-1)/2 M²)\n"
-            "P/P0 = (T/T0)^(γ/(γ-1))\n"
-            "Area-Mach relation"
-        )
-        layout.addWidget(eq)
-
-        # SI UNITS
-        layout.addWidget(QLabel("SI Units"))
-
-        self.si_box = QLabel("Geometry values will appear here")
-        layout.addWidget(self.si_box)
-
-        # DESCRIPTION
-        layout.addWidget(QLabel("Description"))
+        for name in ["Ox Temp", "Fuel Temp", "Contraction Ratio", "Ambient Pressure"]:
+            box = QLineEdit()
+            box.setPlaceholderText(name + " (optional)")
+            layout.addWidget(box)
 
         desc = QTextEdit()
         desc.setReadOnly(True)
-        desc.setText(
-            "Rocket nozzle design tool.\n"
-            "Generates geometry, mesh, and flow visualization."
-        )
+        desc.setText("Defines propulsion conditions and geometry.")
         layout.addWidget(desc)
 
-        widget = QWidget()
-        widget.setLayout(layout)
+        layout.addWidget(QPushButton("Explain (LLM)"))
 
-        return widget
+        return QWidget(layout=layout)
 
-    # -----------------------------
-    # 2x2 PLOT GRID
-    # -----------------------------
-    def create_plots(self):
+    # -------------------------
+    # LEARNING COLUMN (FIXED)
+    # -------------------------
+    def learning_col(self):
 
-        grid = QGridLayout()
+        layout = QVBoxLayout()
 
-        self.geometry_plot = PlotCanvas("Geometry")
-        self.mesh_plot = PlotCanvas("Mesh")
-        self.isentropic_plot = PlotCanvas("Isentropic Flow")
-        self.pv_widget = QtInteractor(self)
+        self.learn_toggle = QCheckBox("Learning Mode")
+        layout.addWidget(self.learn_toggle)
 
-        grid.addWidget(self.geometry_plot, 0, 0)
-        grid.addWidget(self.mesh_plot, 0, 1)
-        grid.addWidget(self.isentropic_plot, 1, 0)
-        grid.addWidget(self.pv_widget, 1, 1)
+        self.learn_view = MarkdownViewer()
 
-        container = QWidget()
-        container.setLayout(grid)
+        self.learn_view.set_markdown("""
+# Isentropic Flow
 
-        return container
+$$
+T/T_0 = \\frac{1}{1 + \\frac{\\gamma - 1}{2} M^2}
+$$
 
-    # -----------------------------
-    # STATUS
-    # -----------------------------
-    def create_status(self):
+$$
+P/P_0 = (T/T_0)^{\\frac{\\gamma}{\\gamma - 1}}
+$$
+""")
 
-        self.status = QLabel("Ready")
-        self.statusBar().addWidget(self.status)
+        layout.addWidget(self.learn_view)
 
-    # -----------------------------
-    # LLM PANEL
-    # -----------------------------
-    def create_llm_panel(self):
+        reload_btn = QPushButton("Reload")
+        reload_btn.clicked.connect(self.reload_learning)
+        layout.addWidget(reload_btn)
 
-        self.llm = QDockWidget("LLM Assistant", self)
+        return QWidget(layout=layout)
+
+    def reload_learning(self):
+
+        if not self.learn_toggle.isChecked():
+            self.learn_view.set_markdown("Learning Mode Disabled")
+            return
+
+        self.learn_view.set_markdown("""
+# Rao Nozzle Approximation
+
+$$
+y = ax^2 + bx + c
+$$
+
+$$
+\\frac{dy}{dx} = \\tan(\\theta_e)
+$$
+""")
+
+    # -------------------------
+    # PLOT COLUMN (FIXED)
+    # -------------------------
+    def plot_col(self):
+
+        layout = QVBoxLayout()
+
+        self.plot = PlotCanvas()
+        layout.addWidget(self.plot)
+
+        row = QHBoxLayout()
+
+        self.mode = QComboBox()
+        self.mode.addItems(["Mach", "Temperature", "Pressure"])
+        self.mode.currentIndexChanged.connect(self.run_sim)
+
+        row.addWidget(QLabel("Field"))
+        row.addWidget(self.mode)
+
+        layout.addLayout(row)
+
+        self.info = QLabel("Nozzle Data")
+        layout.addWidget(self.info)
+
+        run = QPushButton("Run Simulation")
+        run.clicked.connect(self.run_sim)
+        layout.addWidget(run)
+
+        return QWidget(layout=layout)
+
+    # -------------------------
+    # LLM COLUMN
+    # -------------------------
+    def llm_col(self):
+
+        layout = QVBoxLayout()
+
+        layout.addWidget(QLabel("LLM"))
 
         chat = QTextEdit()
-        chat.setPlaceholderText("Ask anything...")
+        layout.addWidget(chat)
 
-        self.llm.setWidget(chat)
+        api_btn = QPushButton("Set API Key")
+        api_btn.clicked.connect(self.api_popup)
+        layout.addWidget(api_btn)
 
-        self.addDockWidget(Qt.RightDockWidgetArea, self.llm)
-        self.llm.hide()
+        return QWidget(layout=layout)
 
-    def toggle_llm(self):
-        self.llm.setVisible(not self.llm.isVisible())
+    def api_popup(self):
 
-    # -----------------------------
-    # SIMULATION
-    # -----------------------------
-    def run_simulation(self):
+        dlg = QDialog(self)
+        dlg.setWindowTitle("API Config")
 
-        thrust = self.thrust.get_value()
+        l = QVBoxLayout()
+        l.addWidget(QLineEdit("API Key"))
+        l.addWidget(QLineEdit("Secret"))
+        l.addWidget(QComboBox())
+
+        dlg.setLayout(l)
+        dlg.exec()
+
+    # -------------------------
+    # SIMULATION (FIXED)
+    # -------------------------
+    def run_sim(self):
+
+        thrust = self.thrust.get()
 
         rt = 0.01 + thrust / 20000
         re = rt * 3
         rc = rt * 2
 
-        chamber = [(-0.05, rc), (0, rc)]
-
         conv = converging_parabola(rc, rt, 0, 0.03)
         throat = throat_fillet(rt, 0.01, conv[-1][0])
-
         rao = RaoBell()
-        L = rao.length(rt, re)
 
+        L = rao.length(rt, re)
         bell = rao.contour(rt, re, L, throat[-1][0])
 
-        self.contour = chamber + conv[1:] + throat[1:] + bell[1:]
+        contour = conv + throat + bell
 
-        # -------- Geometry --------
-        x = np.array([p[0] for p in self.contour])
-        y = np.array([p[1] for p in self.contour])
+        x = np.array([p[0] for p in contour])
+        y = np.array([p[1] for p in contour])
 
-        self.geometry_plot.ax.clear()
-        self.geometry_plot.ax.plot(x, y)
-        self.geometry_plot.ax.plot(x, -y)
-        self.geometry_plot.ax.set_aspect("equal")
-        self.geometry_plot.draw()
-
-        # -------- Isentropic Heatmap --------
         A = np.pi * y**2
-        At = np.min(A)
+        At = min(A)
 
-        gamma = 1.22
         M = np.sqrt(A / At)
+        T = 1 / (1 + 0.2 * M**2)
+        P = T**3.5
 
-        T = 1 / (1 + (gamma - 1)/2 * M**2)
+        if self.mode.currentText() == "Mach":
+            Z, cmap = M, "viridis"
+        elif self.mode.currentText() == "Temperature":
+            Z, cmap = T, "inferno"
+        else:
+            Z, cmap = P, "cividis"
 
-        X, Y = np.meshgrid(x, np.linspace(-max(y), max(y), 100))
+        X, Yg = np.meshgrid(x, np.linspace(-max(y), max(y), 200))
+        Zg = np.tile(Z, (200, 1))
 
-        Z = np.tile(T, (100, 1))
-        mask = np.abs(Y) <= np.interp(X[0], x, y)
-        Z[~mask] = np.nan
+        mask = np.abs(Yg) <= np.interp(X[0], x, y)
+        Zg[~mask] = np.nan
 
-        self.isentropic_plot.ax.clear()
+        self.plot.ax.clear()
 
-        im = self.isentropic_plot.ax.imshow(
-            Z,
+        self.plot.ax.plot(x, y, color="white")
+        self.plot.ax.plot(x, -y, color="white")
+
+        im = self.plot.ax.imshow(
+            Zg,
             extent=[x.min(), x.max(), -max(y), max(y)],
+            cmap=cmap,
             origin="lower",
             aspect="auto"
         )
 
-        self.isentropic_plot.figure.colorbar(im, ax=self.isentropic_plot.ax)
-        self.isentropic_plot.draw()
+        self.plot.figure.colorbar(im, ax=self.plot.ax)
 
-        # -------- 3D CAD --------
-        pts = [(r, x) for x, r in self.contour]
+        self.plot.ax.set_xlabel("Axial Length")
+        self.plot.ax.set_ylabel("Radius")
 
-        profile = cq.Workplane("XY").polyline(pts).close()
-        solid = profile.revolve(360, (0,0,0), (0,1,0))
+        self.plot.draw()
 
-        self.current_nozzle = solid
-
-        with tempfile.NamedTemporaryFile(suffix=".stl", delete=False) as tmp:
-            tmp_path = tmp.name
-
-        cq.exporters.export(self.current_nozzle, tmp_path)
-        mesh = pv.read(tmp_path)
-
-        self.pv_widget.clear()
-
-        # Set black background
-        self.pv_widget.set_background("black")
-
-        # Add mesh
-        self.pv_widget.add_mesh(
-            mesh,
-            color="lightgray",
-            show_edges=True,
-            edge_color="black",
-            smooth_shading=True,
-            specular=0.5
+        self.info.setText(
+            f"rt={rt:.4f} m | re={re:.4f} m | L={L:.4f} m | Me={M[-1]:.2f}"
         )
 
-        self.pv_widget.reset_camera()
+    # -------------------------
+    # EXPORT TAB
+    # -------------------------
+    def export_tab(self):
 
-        os.remove(tmp_path)
+        layout = QVBoxLayout()
 
-        # -------- SI OUTPUT --------
-        text = f"rt={rt:.4f} m | re={re:.4f} m | rc={rc:.4f} m | L={L:.4f} m"
+        layout.addWidget(QLabel("Exports"))
 
-        self.status.setText(text)
-        self.si_box.setText(text)
+        layout.addWidget(QLabel("STEP Preview"))
+        layout.addWidget(QLabel("MSH Preview"))
 
-    # -----------------------------
-    # MESH
-    # -----------------------------
-    def generate_mesh(self):
+        layout.addWidget(QPushButton("Download STEP"))
+        layout.addWidget(QPushButton("Download MSH"))
+        layout.addWidget(QPushButton("Export PDF"))
+        layout.addWidget(QPushButton("Export DOCX"))
 
-        if self.contour is None:
-            return
-
-        generate_axi_mesh(self.contour)
-
-        mesh = meshio.read("engine_axi.msh")
-
-        pts = mesh.points[:, :2]
-
-        cells = None
-        for c in mesh.cells:
-            if c.type.startswith("triangle"):
-                cells = c.data[:, :3]
-
-        if cells is None:
-            return
-
-        self.mesh_plot.ax.clear()
-        self.mesh_plot.ax.triplot(pts[:,0], pts[:,1], cells)
-        self.mesh_plot.ax.set_aspect("equal")
-        self.mesh_plot.draw()
-
-    # -----------------------------
-    # EXPORT STEP
-    # -----------------------------
-    def export_step(self):
-
-        if self.current_nozzle:
-
-            path = os.path.join(os.path.expanduser("~"), "Downloads", "nozzle.step")
-            cq.exporters.export(self.current_nozzle, path)
-
-            self.status.setText(f"STEP exported → {path}")
+        return QWidget(layout=layout)
