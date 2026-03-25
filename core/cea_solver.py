@@ -27,6 +27,7 @@ def get_combustion_properties(inputs):
         Pc_psi  : float     chamber pressure [psia] cached for reuse
     """
 
+    # PEP 8: Use snake_case for variables (pc instead of Pc)
     Pc_psi = inputs.chamber_pressure_bar  * _BAR_TO_PSI
 
     cea = CEA_Obj(

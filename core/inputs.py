@@ -1,5 +1,7 @@
 """User supplied design inputs for the ImpulseLabs engine solver."""
 from dataclasses import dataclass
+
+
 @dataclass
 class EngineInputs:
      """

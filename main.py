@@ -1,10 +1,7 @@
-from core.inputs import EngineInputs
-from core.engine_solver import solve_engine
-from geometry.contour2d import build_full_contour
-from mesh.msh_generator import generate_axi_mesh
 from core.engine_solver import run_engine_pipeline
 from util.plot import plot_contour
 from util.mesh_visualizer import visualize_msh
+from core.inputs import EngineInputs
 
 
 def main():
@@ -28,9 +25,12 @@ def main():
         conv_length=solution["conv_length"]
     )
 
-    contour = contour_data["contour"]
+    contour = chamber + converging + bell
 
-    plot_contour(contour, show=False)
+    # show contour
+    plot_contour(contour)
+
+    # generate mesh
     generate_axi_mesh(contour)
     visualize_msh("engine_axi.msh", show=False)
     """
@@ -40,8 +40,8 @@ def main():
     plot_contour(contour)
     visualize_msh(result["mesh_file"])
 
-    import matplotlib.pyplot as plt
-    plt.show()
+    # visualize mesh
+    visualize_msh("engine_axi.msh")
 
 
 if __name__ == "__main__":
