@@ -38,10 +38,10 @@ def main():
     result = run_engine_pipeline(inputs)
     contour = result["contour"]
     plot_contour(contour)
-    visualize_msh(result["mesh_file"])
+    visualize_msh(result["mesh_file"], show=False)
 
-    # visualize mesh
-    visualize_msh("engine_axi.msh")
+    import matplotlib.pyplot as plt
+    plt.show()
 
 
 if __name__ == "__main__":
