@@ -38,7 +38,8 @@ def get_combustion_properties(inputs):
     Tc = cea.get_Tcomb(
        Pc=Pc_psi,
         MR=inputs.mixture_ratio
-    )
+    ) 
+    Tc_K = Tc * 5.0 / 9.0
 
     mw, gamma = cea.get_Chamber_MolWt_gamma(
         Pc=Pc_psi,
@@ -49,12 +50,12 @@ def get_combustion_properties(inputs):
         Pc=Pc_psi,
         MR=inputs.mixture_ratio
     )
-
+    cstar_m = cstar * 0.3048
     return {
         "cea": cea,
-        "Tc": Tc,
+        "Tc": Tc_K,
         "gamma": gamma,
-        "cstar": cstar,
+        "cstar": cstar_m,
         "mw": mw,
         "Pc_psi": Pc_psi
     }
