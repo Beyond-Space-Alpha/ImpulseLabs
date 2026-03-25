@@ -7,31 +7,32 @@ def get_combustion_properties(inputs):
     Returns temperature, gamma and cstar.
     """
 
-    Pc = inputs.chamber_pressure_bar * 14.5038
+    # PEP 8: Use snake_case for variables (pc instead of Pc)
+    pc_psi = inputs.chamber_pressure_bar * 14.5038
 
     cea = CEA_Obj(
         oxName=inputs.oxidizer,
         fuelName=inputs.fuel
     )
 
-    Tc = cea.get_Tcomb(
-        Pc=Pc,
+    tc = cea.get_Tcomb(
+        Pc=pc_psi,
         MR=inputs.mixture_ratio
     )
 
     mw, gamma = cea.get_Chamber_MolWt_gamma(
-        Pc=Pc,
+        Pc=pc_psi,
         MR=inputs.mixture_ratio
     )
 
     cstar = cea.get_Cstar(
-        Pc=Pc,
+        Pc=pc_psi,
         MR=inputs.mixture_ratio
     )
 
     return {
         "cea": cea,
-        "Tc": Tc,
+        "Tc": tc,
         "gamma": gamma,
         "cstar": cstar
     }
