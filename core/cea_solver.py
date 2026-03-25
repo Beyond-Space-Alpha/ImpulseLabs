@@ -36,7 +36,7 @@ def get_combustion_properties(inputs):
     )
 
     Tc = cea.get_Tcomb(
-        Pc=Pc_psi,
+       Pc=Pc_psi,
         MR=inputs.mixture_ratio
     )
 
