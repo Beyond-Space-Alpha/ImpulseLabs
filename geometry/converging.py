@@ -11,3 +11,4 @@ def converging_parabola(rc, rt, x0, length, n=80):
 
     return list(zip(x, y))
 
+  

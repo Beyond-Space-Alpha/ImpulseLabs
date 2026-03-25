@@ -14,10 +14,11 @@ from geometry.chamber import chamber_length
 def solve_engine(inputs):
     """
     Full engine solution from validated inputs.
+
     Returns a dictionary that contains:
-    -combustion properties
-    -performance quantities
-    -geometric quantities
+    - combustion properties
+    - performance quantities
+    - geometric quantities
     """
 
     validate_inputs(inputs)
@@ -28,35 +29,36 @@ def solve_engine(inputs):
     cstar = props["cstar"]
 
     # Temporary Isp estimate until a fuller performance model is added
-    Isp = 250.0
+    isp = 250.0
 
-    mdot = mass_flow_rate(inputs.thrust, Isp)
+    mdot = mass_flow_rate(inputs.thrust, isp)
 
-    Pc_pa = inputs.chamber_pressure_bar * 1e5
+    pc_pa = inputs.chamber_pressure_bar * 1e5
 
-    At = throat_area(mdot, Pc_pa, cstar)
-    dt = diam_from_area(At)
+    at = throat_area(mdot, pc_pa, cstar)
+    dt = diam_from_area(at)
     rt = dt / 2.0
 
-    Me = solve_exit_mach(
+    me = solve_exit_mach(
         gamma,
         inputs.chamber_pressure_bar,
         inputs.ambient_pressure_bar,
     )
 
-    eps = expansion_ratio(Me, gamma)
+    eps = expansion_ratio(me, gamma)
 
-    Ae = eps * At
-    de = diam_from_area(Ae)
+    ae = eps * at
+    de = diam_from_area(ae)
     re = de / 2.0
 
     rc = inputs.contraction_ratio * rt
 
-    # Assuming a 40 degree converging angle for now, but this will be an input or optimization variable in the future
+    # Assuming a 40 degree converging angle for now,
+    # but this will be an input or optimization variable in the future
     theta_conv = np.radians(30.0)
     conv_length = (rc - rt) / np.tan(theta_conv)
 
-    Lc = chamber_length(
+    lc = chamber_length(
         rt=rt,
         rc=rc,
         L_star=1.0,
@@ -69,15 +71,15 @@ def solve_engine(inputs):
         "Tc": props["Tc"],
         "gamma": gamma,
         "cstar": cstar,
-        "Isp": Isp,
+        "Isp": isp,
         "mdot": mdot,
-        "Me": Me,
+        "Me": me,
         "expansion_ratio": eps,
-        "At": At,
-        "Ae": Ae,
+        "At": at,
+        "Ae": ae,
         "rt": rt,
         "re": re,
         "rc": rc,
-        "Lc": Lc,
+        "Lc": lc,
         "conv_length": conv_length,
     }
