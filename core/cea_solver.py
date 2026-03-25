@@ -39,7 +39,7 @@ def get_combustion_properties(inputs):
        Pc=Pc_psi,
         MR=inputs.mixture_ratio
     ) 
-    Tc_K = Tc * 5.0 / 9.0
+    Tc_K = Tc * 5.0 / 9.0 #The Tc has been converted from Rankine to Kelvin, since the CEA library returns temperatures in Rankine.
 
     mw, gamma = cea.get_Chamber_MolWt_gamma(
         Pc=Pc_psi,
@@ -50,7 +50,7 @@ def get_combustion_properties(inputs):
         Pc=Pc_psi,
         MR=inputs.mixture_ratio
     )
-    cstar_m = cstar * 0.3048
+    cstar_m = cstar * 0.3048 # Convert from ft/s to m/s, since the CEA library returns cstar in ft/s. The conversion factor is 0.3048 m/ft. 
     return {
         "cea": cea,
         "Tc": Tc_K,
