@@ -1,38 +1,29 @@
-from geometry.rao import RaoBell
-from mesh.msh_generator import generate_axi_mesh
-
+from core.engine_solver import run_engine_pipeline
 from util.plot import plot_contour
 from util.mesh_visualizer import visualize_msh
+from core.inputs import EngineInputs
 
 
 def main():
+    inputs = EngineInputs(
+        thrust=500.0,
+        oxidizer="LOX",
+        fuel="RP1",
+        chamber_pressure_bar=30.0,
+        mixture_ratio=2.5
+    )
 
-    # Example geometry (normally computed from RocketCEA)
-    rt = 0.02
-    re = 0.06
+    """
 
-    chamber_length = 0.05
-    chamber_radius = 0.04
+    solution = solve_engine(inputs)
 
-    # chamber section
-    chamber = [
-        (-chamber_length, chamber_radius),
-        (0, chamber_radius)
-    ]
-
-    # converging
-    converging = [
-        
-        (0, chamber_radius),
-        (0.02, rt)
-    ]
-
-    # bell nozzle
-    rao = RaoBell()
-
-    L = rao.length(rt, re)
-
-    bell = rao.contour(rt, re, L, x0=0.02)
+    contour_data = build_full_contour(
+        rt=solution["rt"],
+        re=solution["re"],
+        rc=solution["rc"],
+        chamber_length=solution["Lc"],
+        conv_length=solution["conv_length"]
+    )
 
     contour = chamber + converging + bell
 
@@ -41,9 +32,16 @@ def main():
 
     # generate mesh
     generate_axi_mesh(contour)
+    visualize_msh("engine_axi.msh", show=False)
+    """
 
-    # visualize mesh
-    visualize_msh("engine_axi.msh")
+    result = run_engine_pipeline(inputs)
+    contour = result["contour"]
+    plot_contour(contour)
+    visualize_msh(result["mesh_file"], show=False)
+
+    import matplotlib.pyplot as plt
+    plt.show()
 
 
 if __name__ == "__main__":
