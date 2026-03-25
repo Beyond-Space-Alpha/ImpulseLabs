@@ -2,7 +2,7 @@ from core.inputs import EngineInputs
 from core.engine_solver import solve_engine
 from geometry.contour2d import build_full_contour
 from mesh.msh_generator import generate_axi_mesh
-
+from core.engine_solver import run_engine_pipeline
 from util.plot import plot_contour
 from util.mesh_visualizer import visualize_msh
 
@@ -15,6 +15,8 @@ def main():
         chamber_pressure_bar=30.0,
         mixture_ratio=2.5
     )
+
+    """
 
     solution = solve_engine(inputs)
 
@@ -31,6 +33,12 @@ def main():
     plot_contour(contour, show=False)
     generate_axi_mesh(contour)
     visualize_msh("engine_axi.msh", show=False)
+    """
+
+    result = run_engine_pipeline(inputs)
+    contour = result["contour"]
+    plot_contour(contour)
+    visualize_msh(result["mesh_file"])
 
     import matplotlib.pyplot as plt
     plt.show()
