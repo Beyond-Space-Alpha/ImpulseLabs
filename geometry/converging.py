@@ -1,11 +1,12 @@
-"""Converging section geometry upstream of the throat entrant arc."""
+"""
+
+Converging section geometry upstream of the throat entrant arc.
 
 from __future__ import annotations
 
 import numpy as np
-from typing import List, Tuple
 
-PointList = List[Tuple[float, float]]
+PointList = list[Tuple[float, float]]
 
 
 def converging_parabola(
@@ -15,7 +16,7 @@ def converging_parabola(
     y_end: float,
     n: int = 100,
 ) -> PointList:
-    """
+    
     Generate a simple converging parabolic wall from chamber radius to the
     start of the throat entrant arc.
 
@@ -45,7 +46,7 @@ def converging_parabola(
     -------
     list[tuple[float, float]]
         Ordered (x, y) points from chamber toward throat
-    """
+    
     if x_end <= x_start:
         raise ValueError(
             f"x_end must be greater than x_start. Got x_start={x_start}, x_end={x_end}."
@@ -67,5 +68,82 @@ def converging_parabola(
     a = (y_end - rc) / (L ** 2)
 
     y = a * s**2 + b * s + c
+
+    return list(zip(x.tolist(), y.tolist()))
+
+"""
+
+
+"""Converging section geometry upstream of the throat entrant arc."""
+
+
+import numpy as np
+
+PointList = list[tuple[float, float]]
+
+
+def converging_section(
+    rc: float,
+    x_start: float,
+    x_end: float,
+    y_end: float,
+    slope_end: float,
+    n: int = 100,
+) -> PointList:
+    """
+    Generate the converging wall from chamber radius to the start of the
+    throat entrant arc using a cubic polynomial.
+
+    Boundary conditions:
+        y(x_start)  = rc          flat chamber junction
+        y'(x_start) = 0           zero slope at chamber
+        y(x_end)    = y_end       matches entrant arc start radius
+        y'(x_end)   = slope_end   matches entrant arc start slope
+
+    Parameters
+    ----------
+    rc         : chamber radius [m]
+    x_start    : start x-coordinate (chamber end) [m]
+    x_end      : end x-coordinate (entrant arc start) [m]
+    y_end      : radius at entrant arc start [m]
+    slope_end  : wall slope dy/dx at entrant arc start [-]
+    n          : number of points
+
+    Returns
+    -------
+    list[tuple[float, float]]
+    """
+    if x_end <= x_start:
+        raise ValueError(
+            f"x_end must be greater than x_start. "
+            f"Got x_start={x_start:.6f}, x_end={x_end:.6f}."
+        )
+
+    L = x_end - x_start
+
+    # Cubic in local coordinate s = x - x_start
+    # y = a*s^3 + b*s^2 + c*s + d
+    # y(0)  = rc     → d = rc
+    # y'(0) = 0      → c = 0
+    # y(L)  = y_end  → a*L^3 + b*L^2 = y_end - rc
+    # y'(L) = slope  → 3*a*L^2 + 2*b*L = slope_end
+
+    d = rc
+    c = 0.0
+
+    # Solve 2x2 system:
+    # [ L^3   L^2 ] [a]   [y_end - rc  ]
+    # [ 3L^2  2L  ] [b] = [slope_end   ]
+    A = np.array([
+        [L**3,    L**2],
+        [3.0*L**2, 2.0*L],
+    ])
+    B = np.array([y_end - rc, slope_end])
+
+    a, b = np.linalg.solve(A, B)
+
+    s = np.linspace(0.0, L, n)
+    y = a * s**3 + b * s**2 + c * s + d
+    x = s + x_start
 
     return list(zip(x.tolist(), y.tolist()))

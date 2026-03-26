@@ -1,11 +1,8 @@
-"""Throat-region geometry for a Rao/TOP bell nozzle."""
-
-from __future__ import annotations
+"""Throat-region geometry for a Rao bell nozzle."""
 
 import math
-from typing import List, Tuple
 
-PointList = List[Tuple[float, float]]
+PointList = list[tuple[float, float]]
 
 _ENTRANT_RADIUS_FACTOR = 1.5
 _EXIT_RADIUS_FACTOR = 0.382

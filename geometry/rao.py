@@ -1,11 +1,9 @@
 """Rao bell nozzle geometry using a quadratic Bezier representation."""
 
-from __future__ import annotations
 
 import math
-from typing import List, Tuple
 
-PointList = List[Tuple[float, float]]
+PointList = list[tuple[float, float]]
 
 # Rao/TOP wall-angle tables commonly used for 60%, 80%, 90% bell lengths.
 # Rows correspond approximately to area ratio values:

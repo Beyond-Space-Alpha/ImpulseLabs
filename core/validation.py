@@ -27,3 +27,4 @@ def validate_inputs(inputs) -> None:
 
     if inputs.mass_flow is not None and inputs.mass_flow <= 0.0:
         raise ValueError(f"Mass flow override must be positive, got {inputs.mass_flow} kg/s.")
+

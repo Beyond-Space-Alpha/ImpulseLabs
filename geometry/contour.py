@@ -38,9 +38,3 @@ def generate_contour(rt, re, length, theta_e=12, n=200):
     y = a*x**2 + b*x + c
 
     return list(zip(x, y))
-<<<<<<< HEAD
-=======
-
-
-      
->>>>>>> a66ed59788f99633412dcf997439b4659c3b15b9

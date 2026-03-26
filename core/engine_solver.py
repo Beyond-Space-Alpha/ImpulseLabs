@@ -134,8 +134,8 @@ def run_engine_pipeline(inputs):
 
     contour = contour_data["contour"]
 
-    mesh_file = "engine_axi.msh"
-    generate_axi_mesh(contour, filename=mesh_file)
+    mesh_file = generate_axi_mesh(contour, rt=solution["rt"], filename="engine_axi.msh")
+ 
 
     return {
         "solution": solution,

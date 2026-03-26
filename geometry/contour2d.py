@@ -1,4 +1,4 @@
-"""Assembly of the full 2D engine contour in throat-centered coordinates."""
+"""Assembly of the full 2D engine contour in throat-centered coordinates.
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ _BELL_LENGTH_PERCENT = 80
 
 
 def _dedupe_join(points: PointList) -> PointList:
-    """Remove only consecutive duplicate points."""
+    Remove only consecutive duplicate points.
     if not points:
         return []
 
@@ -33,7 +33,7 @@ def build_full_contour(
     conv_length: float,
     bell_length_percent: int = _BELL_LENGTH_PERCENT,
 ) -> dict:
-    """
+    
     Build the full internal engine wall contour using throat-centered coordinates.
 
     Geometry order
@@ -70,7 +70,7 @@ def build_full_contour(
         theta_n_deg : bell inlet angle
         theta_e_deg : bell exit angle
         bell_length : bell axial length
-    """
+    
     # --- Throat + bell first, because converging must connect into entrant arc ---
     bell_data = rao_bell_contour(rt=rt, re=re, length_percent=bell_length_percent)
     theta_n_deg = bell_data["theta_n_deg"]
@@ -117,6 +117,129 @@ def build_full_contour(
         "throat": throat_data["contour"],
         "bell": bell_pts,
         "contour": contour,
+        "theta_n_deg": bell_data["theta_n_deg"],
+        "theta_e_deg": bell_data["theta_e_deg"],
+        "bell_length": bell_data["bell_length"],
+    }"""
+
+"""Assembly of the full 2D engine contour in throat-centered coordinates."""
+
+import math
+
+from geometry.converging import converging_section
+from geometry.throat import throat_region
+from geometry.rao import rao_bell_contour
+
+PointList = list[tuple[float, float]]
+
+_BELL_LENGTH_PERCENT = 80
+_ENTRANT_RADIUS_FACTOR = 1.5
+_ENTRANT_START_ANGLE_DEG = -135.0
+
+
+def _dedupe_join(points: PointList) -> PointList:
+    """Remove consecutive near-duplicate points."""
+    if not points:
+        return []
+
+    clean = [points[0]]
+    for pt in points[1:]:
+        if not (math.isclose(pt[0], clean[-1][0]) and math.isclose(pt[1], clean[-1][1])):
+            clean.append(pt)
+    return clean
+
+
+def _entrant_arc_start_slope(theta_start_deg: float) -> float:
+    """
+    Compute the wall slope dy/dx at the start of the entrant arc.
+
+    The entrant arc is parametric: x = Ru*cos(theta), y = cy + Ru*sin(theta)
+    so dy/dx = cos(theta) / (-sin(theta)) = -cot(theta).
+    """
+    theta = math.radians(theta_start_deg)
+    return -math.cos(theta) / math.sin(theta)
+
+
+def build_full_contour(
+    rt: float,
+    re: float,
+    rc: float,
+    chamber_length: float,
+    conv_length: float,
+    bell_length_percent: int = _BELL_LENGTH_PERCENT,
+) -> dict:
+    """
+    Build the full internal engine wall contour in throat-centered coordinates.
+
+    Geometry order
+    --------------
+    1. Chamber cylindrical section
+    2. Converging section (cubic, C1 at both ends)
+    3. Throat entrant arc  (radius 1.5*rt)
+    4. Throat exit arc     (radius 0.382*rt)
+    5. Rao/TOP bell        (quadratic Bezier)
+
+    Parameters
+    ----------
+    rt                 : throat radius [m]
+    re                 : exit radius [m]
+    rc                 : chamber radius [m]
+    chamber_length     : cylindrical chamber length [m]
+    conv_length        : converging section axial length [m]
+    bell_length_percent: Rao bell length percentage (60, 80, or 90)
+
+    Returns
+    -------
+    dict with keys: chamber, converging, throat, bell, contour,
+                    theta_n_deg, theta_e_deg, bell_length
+    """
+    # --- 1. Bell and throat arcs (computed first to get theta_n and entrant start) ---
+    bell_data = rao_bell_contour(rt=rt, re=re, length_percent=bell_length_percent)
+    theta_n_deg = bell_data["theta_n_deg"]
+
+    throat_data = throat_region(rt=rt, theta_n_deg=theta_n_deg)
+    entrant = throat_data["entrant"]
+    exit_arc = throat_data["exit"]
+
+    # --- 2. Chamber ---
+    x_ch_start = -(chamber_length + conv_length)
+    x_ch_end = -conv_length
+    chamber_pts: PointList = [
+        (x_ch_start, rc),
+        (x_ch_end,   rc),
+    ]
+
+    # --- 3. Converging section (cubic, C1 into entrant arc) ---
+    entrant_start_x, entrant_start_y = entrant[0]
+    slope_end = _entrant_arc_start_slope(_ENTRANT_START_ANGLE_DEG)
+
+    conv_pts = converging_section(
+        rc=rc,
+        x_start=x_ch_end,
+        x_end=entrant_start_x,
+        y_end=entrant_start_y,
+        slope_end=slope_end,
+        n=100,
+    )
+
+    # --- 4. Bell ---
+    bell_pts = bell_data["contour"]
+
+    # --- 5. Stitch ---
+    contour: PointList = []
+    contour.extend(chamber_pts)
+    contour.extend(conv_pts[1:])
+    contour.extend(entrant[1:])
+    contour.extend(exit_arc[1:])
+    contour.extend(bell_pts[1:])
+    contour = _dedupe_join(contour)
+
+    return {
+        "chamber":    chamber_pts,
+        "converging": conv_pts,
+        "throat":     throat_data["contour"],
+        "bell":       bell_pts,
+        "contour":    contour,
         "theta_n_deg": bell_data["theta_n_deg"],
         "theta_e_deg": bell_data["theta_e_deg"],
         "bell_length": bell_data["bell_length"],
