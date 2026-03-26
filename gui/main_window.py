@@ -66,6 +66,8 @@ class RangeInput(QWidget):
 
         title = QLabel(label)
         title.setToolTip(tooltip)
+        title.setMouseTracking(True)
+
         layout.addWidget(title)
 
         row = QHBoxLayout()
@@ -74,6 +76,7 @@ class RangeInput(QWidget):
         self.slider = QSlider(Qt.Horizontal)
         self.max = QLineEdit(str(mx))
         self.val = QDoubleSpinBox()
+        self.setToolTip(tooltip) 
 
         # Apply tooltip to all
         for w in [self.min, self.slider, self.max, self.val]:
@@ -495,9 +498,13 @@ class ImpulseLabsWindow(QMainWindow):
         self.plot.ax.xaxis.label.set_color("white")
         self.plot.ax.yaxis.label.set_color("white")
 
-        while len(self.plot.figure.axes) > 1:
-            extra_ax = self.plot.figure.axes[-1]
-            self.plot.figure.delaxes(extra_ax)
+        self.plot.figure.clear()
+
+        self.plot.ax = self.plot.figure.add_subplot(111)
+        self.plot.ax.set_facecolor("#111")
+        self.plot.ax.tick_params(colors="white")
+        self.plot.ax.xaxis.label.set_color("white")
+        self.plot.ax.yaxis.label.set_color("white")
 
         self.plot.ax.plot(x, y, color="white")
         self.plot.ax.plot(x, -y, color="white")
