@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import *
 from PySide6.QtCore import Qt
 from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtGui import QAction
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -57,13 +58,14 @@ class PlotCanvas(FigureCanvasQTAgg):
 # Range Input
 # -------------------------
 class RangeInput(QWidget):
-    def __init__(self, label, mn, mx):
+    def __init__(self, label, mn, mx, tooltip=""):
         super().__init__()
 
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignTop)
 
         title = QLabel(label)
+        title.setToolTip(tooltip)
         layout.addWidget(title)
 
         row = QHBoxLayout()
@@ -72,6 +74,10 @@ class RangeInput(QWidget):
         self.slider = QSlider(Qt.Horizontal)
         self.max = QLineEdit(str(mx))
         self.val = QDoubleSpinBox()
+
+        # Apply tooltip to all
+        for w in [self.min, self.slider, self.max, self.val]:
+            w.setToolTip(tooltip)
 
         row.addWidget(self.min)
         row.addWidget(self.slider)
@@ -132,12 +138,82 @@ class ImpulseLabsWindow(QMainWindow):
         self.resize(1800, 900)
 
         self._last_result = None
+        self.llm_visible = True
 
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
 
         self.tabs.addTab(self.sim_tab(), "Simulation")
         self.tabs.addTab(self.export_tab(), "Export")
+
+        self.create_menu()
+
+    # -------------------------
+    # MENU BAR
+    # -------------------------
+    def create_menu(self):
+        menubar = self.menuBar()
+
+        # FILE
+        file_menu = menubar.addMenu("File")
+
+        new_action = QAction("New", self)
+        new_action.triggered.connect(self.reset_inputs)
+
+        reset_action = QAction("Reset", self)
+        reset_action.triggered.connect(self.reset_inputs)
+
+        sim_tab_action = QAction("Simulation Tab", self)
+        sim_tab_action.triggered.connect(lambda: self.tabs.setCurrentIndex(0))
+
+        export_tab_action = QAction("Export Tab", self)
+        export_tab_action.triggered.connect(lambda: self.tabs.setCurrentIndex(1))
+
+        file_menu.addAction(new_action)
+        file_menu.addAction(reset_action)
+        file_menu.addSeparator()
+        file_menu.addAction(sim_tab_action)
+        file_menu.addAction(export_tab_action)
+
+        # VIEW
+        view_menu = menubar.addMenu("View")
+
+        fullscreen_action = QAction("Toggle Fullscreen", self)
+        fullscreen_action.triggered.connect(self.toggle_fullscreen)
+
+        view_menu.addAction(fullscreen_action)
+
+        # LLM
+        llm_menu = menubar.addMenu("LLM")
+
+        agent_action = QAction("Set Agent", self)
+        agent_action.triggered.connect(self.api_popup)
+
+        toggle_chat = QAction("Toggle Chat Panel", self)
+        toggle_chat.triggered.connect(self.toggle_llm_panel)
+
+        llm_menu.addAction(agent_action)
+        llm_menu.addAction(toggle_chat)
+
+    def toggle_fullscreen(self):
+        if self.isFullScreen():
+            self.showNormal()
+        else:
+            self.showFullScreen()
+
+    def toggle_llm_panel(self):
+        self.llm_visible = not self.llm_visible
+        self.llm_widget.setVisible(self.llm_visible)
+
+    def reset_inputs(self):
+        self.thrust.val.setValue(1000)
+        self.pc.val.setValue(50)
+        self.mr.val.setValue(2.5)
+
+        self.ox_temp.clear()
+        self.fuel_temp.clear()
+        self.contraction_ratio_input.clear()
+        self.ambient_pressure_input.clear()
 
     # -------------------------
     # TAB 1
@@ -148,7 +224,9 @@ class ImpulseLabsWindow(QMainWindow):
         layout.addWidget(self.input_col(), 1)
         layout.addWidget(self.learning_col(), 1)
         layout.addWidget(self.plot_col(), 3)
-        layout.addWidget(self.llm_col(), 1)
+
+        self.llm_widget = self.llm_col()
+        layout.addWidget(self.llm_widget, 1)
 
         w = QWidget()
         w.setLayout(layout)
@@ -163,9 +241,24 @@ class ImpulseLabsWindow(QMainWindow):
 
         layout.addWidget(QLabel("Inputs"))
 
-        self.thrust = RangeInput("Thrust", 100, 5000)
-        self.pc = RangeInput("Chamber Pressure", 5, 100)
-        self.mr = RangeInput("Mixture Ratio", 1, 5)
+        self.thrust = RangeInput(
+            "Thrust",
+            100,
+            5000,
+            "Engine thrust (Newtons). Determines total force output."
+        )
+        self.pc = RangeInput(
+            "Chamber Pressure",
+            5,
+            100,
+            "Pressure inside combustion chamber (bar). Affects efficiency and expansion."
+        )
+        self.mr = RangeInput(
+            "Mixture Ratio",
+            1,
+            5,
+            "Oxidizer to fuel ratio. Controls combustion characteristics."
+        )
 
         layout.addWidget(self.thrust)
         layout.addWidget(self.pc)
@@ -212,19 +305,7 @@ class ImpulseLabsWindow(QMainWindow):
         layout.addWidget(self.learn_toggle)
 
         self.learn_view = MarkdownViewer()
-        self.learn_view.set_markdown(
-            r"""
-# Isentropic Flow
-
-$$
-T/T_0 = \frac{1}{1 + \frac{\gamma - 1}{2} M^2}
-$$
-
-$$
-P/P_0 = (T/T_0)^{\frac{\gamma}{\gamma - 1}}
-$$
-"""
-        )
+        self.learn_view.set_markdown("Learning...")
         layout.addWidget(self.learn_view)
 
         reload_btn = QPushButton("Reload")
@@ -240,19 +321,7 @@ $$
             self.learn_view.set_markdown("Learning Mode Disabled")
             return
 
-        self.learn_view.set_markdown(
-            r"""
-# Rao Nozzle Approximation
-
-$$
-y = ax^2 + bx + c
-$$
-
-$$
-\frac{dy}{dx} = \tan(\theta_e)
-$$
-"""
-        )
+        self.learn_view.set_markdown("## Reloaded Learning Content")
 
     # -------------------------
     # PLOT COLUMN
@@ -293,8 +362,8 @@ $$
 
         layout.addWidget(QLabel("LLM"))
 
-        chat = QTextEdit()
-        layout.addWidget(chat)
+        self.chat = QTextEdit()
+        layout.addWidget(self.chat)
 
         api_btn = QPushButton("Set API Key")
         api_btn.clicked.connect(self.api_popup)
@@ -325,7 +394,7 @@ $$
         dlg.exec()
 
     # -------------------------
-    # INPUT HELPERS
+    # SIMULATION (unchanged)
     # -------------------------
     def _read_optional_float(self, widget, default):
         text = widget.text().strip()
@@ -362,9 +431,6 @@ $$
             ),
         )
 
-    # -------------------------
-    # SIMULATION
-    # -------------------------
     def run_sim(self):
         self.run_btn.setEnabled(False)
         self.info.setText("Running...")
@@ -378,11 +444,6 @@ $$
             self.update_plot(result["contour"], result["solution"])
             self.update_info(result["solution"])
 
-        except Exception as exc:
-            self.info.setText(f"Pipeline failed: {type(exc).__name__}: {exc}")
-            print(f"\nPIPELINE FAILED -> {type(exc).__name__}: {exc}\n")
-            raise
-
         finally:
             self.run_btn.setEnabled(True)
 
@@ -394,30 +455,6 @@ $$
             self._last_result["contour"],
             self._last_result["solution"],
         )
-
-    # -------------------------
-    # PLOT HELPERS
-    # -------------------------
-    @staticmethod
-    def _approx_mach(area_ratio, supersonic):
-        gamma = 1.4
-        M = 2.0 if supersonic else 0.5
-
-        for _ in range(50):
-            t = 1.0 + 0.5 * (gamma - 1.0) * M**2
-            exp = (gamma + 1.0) / (2.0 * (gamma - 1.0))
-            f = ((2.0 / (gamma + 1.0)) * t) ** exp / M - area_ratio
-            df = ((2.0 / (gamma + 1.0)) * t) ** exp * (
-                (gamma - 1.0) * M / t - 1.0 / M**2
-            )
-
-            if abs(df) < 1e-12:
-                break
-
-            M -= f / df
-            M = max(M, 1e-6)
-
-        return M
 
     def update_plot(self, contour, solution):
         x = np.array([p[0] for p in contour], dtype=float)
@@ -491,6 +528,27 @@ $$
             f"mdot={solution['mdot']:.4f} kg/s | "
             f"Tc={solution['Tc']:.0f} K"
         )
+        
+    @staticmethod
+    def _approx_mach(area_ratio, supersonic):
+        gamma = 1.4
+        M = 2.0 if supersonic else 0.5
+
+        for _ in range(50):
+            t = 1.0 + 0.5 * (gamma - 1.0) * M**2
+            exp = (gamma + 1.0) / (2.0 * (gamma - 1.0))
+            f = ((2.0 / (gamma + 1.0)) * t) ** exp / M - area_ratio
+            df = ((2.0 / (gamma + 1.0)) * t) ** exp * (
+                (gamma - 1.0) * M / t - 1.0 / M**2
+            )
+
+            if abs(df) < 1e-12:
+                break
+
+            M -= f / df
+            M = max(M, 1e-6)
+
+        return M
 
     # -------------------------
     # EXPORT TAB
