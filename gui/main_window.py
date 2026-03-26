@@ -55,11 +55,14 @@ class PlotCanvas(FigureCanvasQTAgg):
 
 
 # -------------------------
-# Range Input
+# Range Input (ONLY ADDITION: hover hook)
 # -------------------------
 class RangeInput(QWidget):
-    def __init__(self, label, mn, mx, tooltip=""):
+    def __init__(self, label, mn, mx, tooltip="", parent_window=None):
         super().__init__()
+
+        self.desc = tooltip
+        self.parent_window = parent_window
 
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignTop)
@@ -76,9 +79,8 @@ class RangeInput(QWidget):
         self.slider = QSlider(Qt.Horizontal)
         self.max = QLineEdit(str(mx))
         self.val = QDoubleSpinBox()
-        self.setToolTip(tooltip) 
+        self.setToolTip(tooltip)
 
-        # Apply tooltip to all
         for w in [self.min, self.slider, self.max, self.val]:
             w.setToolTip(tooltip)
 
@@ -101,6 +103,13 @@ class RangeInput(QWidget):
         self.val.valueChanged.connect(
             lambda: self.slider.setValue(int(self.val.value()))
         )
+    
+
+    # 🔥 NEW: hover updates description panel
+    def enterEvent(self, event):
+        if self.parent_window and hasattr(self.parent_window, "desc_box"):
+            self.parent_window.desc_box.setText(self.desc)
+        super().enterEvent(event)
 
     def update_all(self):
         try:
@@ -157,7 +166,6 @@ class ImpulseLabsWindow(QMainWindow):
     def create_menu(self):
         menubar = self.menuBar()
 
-        # FILE
         file_menu = menubar.addMenu("File")
 
         new_action = QAction("New", self)
@@ -178,7 +186,6 @@ class ImpulseLabsWindow(QMainWindow):
         file_menu.addAction(sim_tab_action)
         file_menu.addAction(export_tab_action)
 
-        # VIEW
         view_menu = menubar.addMenu("View")
 
         fullscreen_action = QAction("Toggle Fullscreen", self)
@@ -186,7 +193,6 @@ class ImpulseLabsWindow(QMainWindow):
 
         view_menu.addAction(fullscreen_action)
 
-        # LLM
         llm_menu = menubar.addMenu("LLM")
 
         agent_action = QAction("Set Agent", self)
@@ -203,262 +209,7 @@ class ImpulseLabsWindow(QMainWindow):
             self.showNormal()
         else:
             self.showFullScreen()
-
-    def toggle_llm_panel(self):
-        self.llm_visible = not self.llm_visible
-        self.llm_widget.setVisible(self.llm_visible)
-
-    def reset_inputs(self):
-        self.thrust.val.setValue(1000)
-        self.pc.val.setValue(50)
-        self.mr.val.setValue(2.5)
-
-        self.ox_temp.clear()
-        self.fuel_temp.clear()
-        self.contraction_ratio_input.clear()
-        self.ambient_pressure_input.clear()
-
-    # -------------------------
-    # TAB 1
-    # -------------------------
-    def sim_tab(self):
-        layout = QHBoxLayout()
-
-        layout.addWidget(self.input_col(), 1)
-        layout.addWidget(self.learning_col(), 1)
-        layout.addWidget(self.plot_col(), 3)
-
-        self.llm_widget = self.llm_col()
-        layout.addWidget(self.llm_widget, 1)
-
-        w = QWidget()
-        w.setLayout(layout)
-        return w
-
-    # -------------------------
-    # INPUT COLUMN
-    # -------------------------
-    def input_col(self):
-        layout = QVBoxLayout()
-        layout.setAlignment(Qt.AlignTop)
-
-        layout.addWidget(QLabel("Inputs"))
-
-        self.thrust = RangeInput(
-            "Thrust",
-            100,
-            5000,
-            "Engine thrust (Newtons). Determines total force output."
-        )
-        self.pc = RangeInput(
-            "Chamber Pressure",
-            5,
-            100,
-            "Pressure inside combustion chamber (bar). Affects efficiency and expansion."
-        )
-        self.mr = RangeInput(
-            "Mixture Ratio",
-            1,
-            5,
-            "Oxidizer to fuel ratio. Controls combustion characteristics."
-        )
-
-        layout.addWidget(self.thrust)
-        layout.addWidget(self.pc)
-        layout.addWidget(self.mr)
-
-        self.prop = QComboBox()
-        self.prop.addItems(["LOX/RP1", "LOX/LH2", "N2O/CH4"])
-        layout.addWidget(self.prop)
-
-        self.ox_temp = QLineEdit()
-        self.ox_temp.setPlaceholderText("Ox Temp (optional)")
-        layout.addWidget(self.ox_temp)
-
-        self.fuel_temp = QLineEdit()
-        self.fuel_temp.setPlaceholderText("Fuel Temp (optional)")
-        layout.addWidget(self.fuel_temp)
-
-        self.contraction_ratio_input = QLineEdit()
-        self.contraction_ratio_input.setPlaceholderText("Contraction Ratio (optional)")
-        layout.addWidget(self.contraction_ratio_input)
-
-        self.ambient_pressure_input = QLineEdit()
-        self.ambient_pressure_input.setPlaceholderText("Ambient Pressure (bar) (optional)")
-        layout.addWidget(self.ambient_pressure_input)
-
-        desc = QTextEdit()
-        desc.setReadOnly(True)
-        desc.setText("Defines propulsion conditions and geometry.")
-        layout.addWidget(desc)
-
-        layout.addWidget(QPushButton("Explain (LLM)"))
-
-        w = QWidget()
-        w.setLayout(layout)
-        return w
-
-    # -------------------------
-    # LEARNING COLUMN
-    # -------------------------
-    def learning_col(self):
-        layout = QVBoxLayout()
-
-        self.learn_toggle = QCheckBox("Learning Mode")
-        layout.addWidget(self.learn_toggle)
-
-        self.learn_view = MarkdownViewer()
-        self.learn_view.set_markdown("Learning...")
-        layout.addWidget(self.learn_view)
-
-        reload_btn = QPushButton("Reload")
-        reload_btn.clicked.connect(self.reload_learning)
-        layout.addWidget(reload_btn)
-
-        w = QWidget()
-        w.setLayout(layout)
-        return w
-
-    def reload_learning(self):
-        if not self.learn_toggle.isChecked():
-            self.learn_view.set_markdown("Learning Mode Disabled")
-            return
-
-        self.learn_view.set_markdown("## Reloaded Learning Content")
-
-    # -------------------------
-    # PLOT COLUMN
-    # -------------------------
-    def plot_col(self):
-        layout = QVBoxLayout()
-
-        self.plot = PlotCanvas()
-        layout.addWidget(self.plot)
-
-        row = QHBoxLayout()
-
-        self.mode = QComboBox()
-        self.mode.addItems(["Mach", "Temperature", "Pressure"])
-        self.mode.currentIndexChanged.connect(self.rerender_last_result)
-
-        row.addWidget(QLabel("Field"))
-        row.addWidget(self.mode)
-
-        layout.addLayout(row)
-
-        self.info = QLabel("Nozzle Data")
-        layout.addWidget(self.info)
-
-        self.run_btn = QPushButton("Run Simulation")
-        self.run_btn.clicked.connect(self.run_sim)
-        layout.addWidget(self.run_btn)
-
-        w = QWidget()
-        w.setLayout(layout)
-        return w
-
-    # -------------------------
-    # LLM COLUMN
-    # -------------------------
-    def llm_col(self):
-        layout = QVBoxLayout()
-
-        layout.addWidget(QLabel("LLM"))
-
-        self.chat = QTextEdit()
-        layout.addWidget(self.chat)
-
-        api_btn = QPushButton("Set API Key")
-        api_btn.clicked.connect(self.api_popup)
-        layout.addWidget(api_btn)
-
-        w = QWidget()
-        w.setLayout(layout)
-        return w
-
-    def api_popup(self):
-        dlg = QDialog(self)
-        dlg.setWindowTitle("API Config")
-
-        l = QVBoxLayout()
-
-        api_key = QLineEdit()
-        api_key.setPlaceholderText("API Key")
-        l.addWidget(api_key)
-
-        secret = QLineEdit()
-        secret.setPlaceholderText("Secret")
-        l.addWidget(secret)
-
-        provider = QComboBox()
-        l.addWidget(provider)
-
-        dlg.setLayout(l)
-        dlg.exec()
-
-    # -------------------------
-    # SIMULATION (unchanged)
-    # -------------------------
-    def _read_optional_float(self, widget, default):
-        text = widget.text().strip()
-        if not text:
-            return default
-        try:
-            return float(text)
-        except ValueError:
-            return default
-
-    def _build_inputs(self):
-        prop = self.prop.currentText()
-
-        if prop == "LOX/RP1":
-            oxidizer, fuel = "LOX", "RP1"
-        elif prop == "LOX/LH2":
-            oxidizer, fuel = "LOX", "LH2"
-        elif prop == "N2O/CH4":
-            oxidizer, fuel = "N2O", "CH4"
-        else:
-            oxidizer, fuel = "LOX", "RP1"
-
-        return EngineInputs(
-            thrust=float(self.thrust.get()),
-            oxidizer=oxidizer,
-            fuel=fuel,
-            chamber_pressure_bar=float(self.pc.get()),
-            mixture_ratio=float(self.mr.get()),
-            ambient_pressure_bar=self._read_optional_float(
-                self.ambient_pressure_input, 1.0
-            ),
-            contraction_ratio=self._read_optional_float(
-                self.contraction_ratio_input, 3.0
-            ),
-        )
-
-    def run_sim(self):
-        self.run_btn.setEnabled(False)
-        self.info.setText("Running...")
-        QApplication.processEvents()
-
-        try:
-            inputs = self._build_inputs()
-            result = run_engine_pipeline(inputs)
-
-            self._last_result = result
-            self.update_plot(result["contour"], result["solution"])
-            self.update_info(result["solution"])
-
-        finally:
-            self.run_btn.setEnabled(True)
-
-    def rerender_last_result(self):
-        if self._last_result is None:
-            return
-
-        self.update_plot(
-            self._last_result["contour"],
-            self._last_result["solution"],
-        )
-
+    
     def update_plot(self, contour, solution):
         x = np.array([p[0] for p in contour], dtype=float)
         y = np.array([p[1] for p in contour], dtype=float)
@@ -525,17 +276,7 @@ class ImpulseLabsWindow(QMainWindow):
         self.plot.ax.set_ylabel("Radius")
 
         self.plot.draw()
-
-    def update_info(self, solution):
-        self.info.setText(
-            f"Isp={solution['Isp']:.1f} s | "
-            f"rt={solution['rt']:.4f} m | "
-            f"re={solution['re']:.4f} m | "
-            f"Me={solution['Me']:.2f} | "
-            f"mdot={solution['mdot']:.4f} kg/s | "
-            f"Tc={solution['Tc']:.0f} K"
-        )
-        
+    
     @staticmethod
     def _approx_mach(area_ratio, supersonic):
         gamma = 1.4
@@ -556,10 +297,231 @@ class ImpulseLabsWindow(QMainWindow):
             M = max(M, 1e-6)
 
         return M
+    
+    def update_info(self, solution):
+        self.info.setText(
+            f"Isp={solution['Isp']:.1f} s | "
+            f"rt={solution['rt']:.4f} m | "
+            f"re={solution['re']:.4f} m | "
+            f"Me={solution['Me']:.2f} | "
+            f"mdot={solution['mdot']:.4f} kg/s | "
+            f"Tc={solution['Tc']:.0f} K"
+        )
+
+    def toggle_llm_panel(self):
+        self.llm_visible = not self.llm_visible
+        self.llm_widget.setVisible(self.llm_visible)
+
+    def reset_inputs(self):
+        self.thrust.val.setValue(1000)
+        self.pc.val.setValue(50)
+        self.mr.val.setValue(2.5)
+
+        self.ox_temp.clear()
+        self.fuel_temp.clear()
+        self.contraction_ratio_input.clear()
+        self.ambient_pressure_input.clear()
 
     # -------------------------
-    # EXPORT TAB
+    # TAB 1
     # -------------------------
+    def sim_tab(self):
+        layout = QHBoxLayout()
+
+        layout.addWidget(self.input_col(), 1)
+        layout.addWidget(self.learning_col(), 1)
+        layout.addWidget(self.plot_col(), 3)
+
+        self.llm_widget = self.llm_col()
+        layout.addWidget(self.llm_widget, 1)
+
+        w = QWidget()
+        w.setLayout(layout)
+        return w
+
+    def learning_col(self):
+        layout = QVBoxLayout()
+
+        self.learn_toggle = QCheckBox("Learning Mode")
+        layout.addWidget(self.learn_toggle)
+
+        self.learn_view = MarkdownViewer()
+        self.learn_view.set_markdown("Learning...")
+        layout.addWidget(self.learn_view)
+
+        reload_btn = QPushButton("Reload")
+        reload_btn.clicked.connect(self.reload_learning)
+        layout.addWidget(reload_btn)
+
+        w = QWidget()
+        w.setLayout(layout)
+        return w
+    
+    def reload_learning(self):
+        if not self.learn_toggle.isChecked():
+            self.learn_view.set_markdown("Learning Mode Disabled")
+            return
+
+        self.learn_view.set_markdown("## Reloaded Learning Content")
+        
+        
+    def rerender_last_result(self):
+        if self._last_result is None:
+            return
+
+        self.update_plot(
+            self._last_result["contour"],
+            self._last_result["solution"],
+        )
+        
+        
+    def run_sim(self):
+        self.run_btn.setEnabled(False)
+        self.info.setText("Running...")
+        QApplication.processEvents()
+
+        try:
+            inputs = self._build_inputs()
+            result = run_engine_pipeline(inputs)
+
+            self._last_result = result
+            self.update_plot(result["contour"], result["solution"])
+            self.update_info(result["solution"])
+
+        finally:
+            self.run_btn.setEnabled(True)
+            
+    def llm_col(self):
+        layout = QVBoxLayout()
+
+        layout.addWidget(QLabel("LLM"))
+
+        self.chat = QTextEdit()
+        layout.addWidget(self.chat)
+
+        api_btn = QPushButton("Set API Key")
+        api_btn.clicked.connect(self.api_popup)
+        layout.addWidget(api_btn)
+
+        w = QWidget()
+        w.setLayout(layout)
+        return w
+    
+    def api_popup(self):
+        dlg = QDialog(self)
+        dlg.setWindowTitle("API Config")
+
+        l = QVBoxLayout()
+
+        api_key = QLineEdit()
+        api_key.setPlaceholderText("API Key")
+        l.addWidget(api_key)
+
+        secret = QLineEdit()
+        secret.setPlaceholderText("Secret")
+        l.addWidget(secret)
+
+        provider = QComboBox()
+        l.addWidget(provider)
+
+        dlg.setLayout(l)
+        dlg.exec()
+
+    
+    def plot_col(self):
+        layout = QVBoxLayout()
+
+        self.plot = PlotCanvas()
+        layout.addWidget(self.plot)
+
+        row = QHBoxLayout()
+
+        self.mode = QComboBox()
+        self.mode.addItems(["Mach", "Temperature", "Pressure"])
+        self.mode.currentIndexChanged.connect(self.rerender_last_result)
+
+        row.addWidget(QLabel("Field"))
+        row.addWidget(self.mode)
+
+        layout.addLayout(row)
+
+        self.info = QLabel("Nozzle Data")
+        layout.addWidget(self.info)
+
+        self.run_btn = QPushButton("Run Simulation")
+        self.run_btn.clicked.connect(self.run_sim)
+        layout.addWidget(self.run_btn)
+
+        w = QWidget()
+        w.setLayout(layout)
+        return w
+    # -------------------------
+    # INPUT COLUMN (ONLY MODIFIED: desc_box + parent wiring)
+    # -------------------------
+    def input_col(self):
+        layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignTop)
+
+        layout.addWidget(QLabel("Inputs"))
+
+        self.thrust = RangeInput(
+            "Thrust",
+            100,
+            5000,
+            "Engine thrust (Newtons). Determines total force output.",
+            parent_window=self
+        )
+        self.pc = RangeInput(
+            "Chamber Pressure",
+            5,
+            100,
+            "Pressure inside combustion chamber (bar). Affects efficiency and expansion.",
+            parent_window=self
+        )
+        self.mr = RangeInput(
+            "Mixture Ratio",
+            1,
+            5,
+            "Oxidizer to fuel ratio. Controls combustion characteristics.",
+            parent_window=self
+        )
+
+        layout.addWidget(self.thrust)
+        layout.addWidget(self.pc)
+        layout.addWidget(self.mr)
+
+        self.prop = QComboBox()
+        self.prop.addItems(["LOX/RP1", "LOX/LH2", "N2O/CH4"])
+        layout.addWidget(self.prop)
+
+        self.ox_temp = QLineEdit()
+        self.ox_temp.setPlaceholderText("Ox Temp (optional)")
+        layout.addWidget(self.ox_temp)
+
+        self.fuel_temp = QLineEdit()
+        self.fuel_temp.setPlaceholderText("Fuel Temp (optional)")
+        layout.addWidget(self.fuel_temp)
+
+        self.contraction_ratio_input = QLineEdit()
+        self.contraction_ratio_input.setPlaceholderText("Contraction Ratio (optional)")
+        layout.addWidget(self.contraction_ratio_input)
+
+        self.ambient_pressure_input = QLineEdit()
+        self.ambient_pressure_input.setPlaceholderText("Ambient Pressure (bar) (optional)")
+        layout.addWidget(self.ambient_pressure_input)
+
+        # 🔥 modified
+        self.desc_box = QTextEdit()
+        self.desc_box.setReadOnly(True)
+        self.desc_box.setText("Defines propulsion conditions and geometry.")
+        layout.addWidget(self.desc_box)
+
+        layout.addWidget(QPushButton("Explain (LLM)"))
+
+        w = QWidget()
+        w.setLayout(layout)
+        return w
+    
     def export_tab(self):
         layout = QVBoxLayout()
 
@@ -575,3 +537,42 @@ class ImpulseLabsWindow(QMainWindow):
         w = QWidget()
         w.setLayout(layout)
         return w
+    
+    def _build_inputs(self):
+        prop = self.prop.currentText()
+
+        if prop == "LOX/RP1":
+            oxidizer, fuel = "LOX", "RP1"
+        elif prop == "LOX/LH2":
+            oxidizer, fuel = "LOX", "LH2"
+        elif prop == "N2O/CH4":
+            oxidizer, fuel = "N2O", "CH4"
+        else:
+            oxidizer, fuel = "LOX", "RP1"
+
+        return EngineInputs(
+            thrust=float(self.thrust.get()),
+            oxidizer=oxidizer,
+            fuel=fuel,
+            chamber_pressure_bar=float(self.pc.get()),
+            mixture_ratio=float(self.mr.get()),
+            ambient_pressure_bar=self._read_optional_float(
+                self.ambient_pressure_input, 1.0
+            ),
+            contraction_ratio=self._read_optional_float(
+                self.contraction_ratio_input, 3.0
+            ),
+        )
+        
+    def _read_optional_float(self, widget, default):
+        text = widget.text().strip()
+        if not text:
+            return default
+        try:
+            return float(text)
+        except ValueError:
+            return default
+
+    # -------------------------
+    # REMAINING CODE = EXACT SAME
+    # (unchanged from your original)
