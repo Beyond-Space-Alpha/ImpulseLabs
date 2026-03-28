@@ -2,60 +2,65 @@ from geometry.converging import converging_parabola
 from geometry.rao import RaoBell
 
 
-def build_full_contour(rt, re, rc, chamber_length, conv_length):
+def build_full_contour(RT, RE, RC, L_CHAMBER, L_CONV):
     """
     Stitches chamber, converging, and Rao bell sections into a single contour.
-    
+
     Args:
-        rt, re, rc (float): Radii for throat, exit, and chamber.
-        chamber_length (float): Length of the cylindrical chamber.
-        conv_length (float): Axial length of the converging section.
+        RT (float): Throat radius.
+        RE (float): Exit radius.
+        RC (float): Chamber radius.
+        L_CHAMBER (float): Length of the cylindrical chamber.
+        L_CONV (float): Axial length of the converging section.
+
+    Returns:
+        dict: A dictionary containing points for each section and the full contour.
     """
     # 1. Define the cylindrical chamber section
     # Points are (x, y) coordinates
     chamber_pts = [
-        (-chamber_length, rc),
-        (0.0, rc)
+        (-L_CHAMBER, RC),
+        (0.0, RC)
     ]
 
     # 2. Generate converging section points
     conv_pts = converging_parabola(
-        rc=rc,
-        rt=rt,
+        rc=RC,
+        rt=RT,
         x0=0.0,
-        length=conv_length
+        length=L_CONV
     )
 
     # 3. Generate the Rao Bell (nozzle) section
     rao = RaoBell()
-    nozzle_length = rao.length(rt, re)
+    L_NOZZLE = rao.length(RT, RE)
 
+    # Note: Using conv_pts[-1][0] as the x_start for the bell
     bell_pts = rao.contour(
-        rt=rt,
-        re=re,
-        L=nozzle_length,
+        rt=RT,
+        re=RE,
+        L=L_NOZZLE,
         x0=conv_pts[-1][0]
     )
 
-    # 4. Stitch sections together while avoiding duplicate junction points
+    # 4. Stitch sections together
+    # We use list slicing [1:] to avoid duplicating junction points
     contour = list(chamber_pts)
+    
+    if conv_pts:
+        # Check if the last chamber point is identical to first converging point
+        start_idx = 1 if contour[-1] == conv_pts[0] else 0
+        contour.extend(conv_pts[start_idx:])
 
-    # Stitching converging section
-    if contour and conv_pts and contour[-1] == conv_pts[0]:
-        contour.extend(conv_pts[1:])
-    else:
-        contour.extend(conv_pts)
-
-    # Stitching bell section
-    if contour and bell_pts and contour[-1] == bell_pts[0]:
-        contour.extend(bell_pts[1:])
-    else:
-        contour.extend(bell_pts)
+    if bell_pts:
+        # Check if the last converging point is identical to first bell point
+        start_idx = 1 if contour[-1] == bell_pts[0] else 0
+        contour.extend(bell_pts[start_idx:])
 
     return {
         "chamber": chamber_pts,
         "converging": conv_pts,
         "bell": bell_pts,
-        "contour": contour,
-        "nozzle_length": nozzle_length
+        "full_contour": contour,
+        "L_NOZZLE": L_NOZZLE
     }
