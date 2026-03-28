@@ -1,8 +1,3 @@
-To align your code with PEP 8 standards while respecting your preference for capitalized propulsion constants, here is the refactored version.
-
-In this context, I have treated RT, RE, and L (Length) as the standard propulsion constants to be kept in uppercase.
-
-Python
 import numpy as np
 
 
