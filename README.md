@@ -52,7 +52,7 @@ This should allow the `run_ui.py` file to work properly.
 Create an **Anaconda environment with Python ≤ 3.11**, then install the dependencies:
 
 ```bash
-pip install -r requirements.txt
+
 ```
 
 ---

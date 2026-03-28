@@ -3,6 +3,7 @@ import numpy as np
 
 
 def clean_contour(contour):
+<<<<<<< HEAD
     """
     Removes duplicates and ensures the contour progresses logically for meshing.
     """
@@ -19,6 +20,19 @@ def clean_contour(contour):
 
         # Enforce increasing x-coordinates to prevent self-intersecting loops
         if p[0] < clean[-1][0]:
+=======
+    clean = []
+
+    for p in contour:
+        if len(clean) == 0:
+            clean.append(p)
+            continue
+
+        if np.allclose(p, clean[-1]):
+            continue
+
+        if p[0] <= clean[-1][0]:
+>>>>>>> 3bcdbe14c7fb33c30b012ea16b1b5126c1981987
             continue
 
         clean.append(p)
@@ -26,6 +40,7 @@ def clean_contour(contour):
     return clean
 
 
+<<<<<<< HEAD
 def generate_axi_mesh(contour, filename="engine_axi.msh"):
     """
     Generates a 2D axisymmetric mesh for a rocket nozzle using Gmsh.
@@ -34,11 +49,15 @@ def generate_axi_mesh(contour, filename="engine_axi.msh"):
         contour (list): List of (x, r) tuples defining the nozzle wall.
         filename (str): Output path for the .msh file.
     """
+=======
+def generate_axi_mesh(contour, rt=None, filename="engine_axi.msh"):
+>>>>>>> 3bcdbe14c7fb33c30b012ea16b1b5126c1981987
     contour = clean_contour(contour)
 
     gmsh.initialize()
     gmsh.model.add("rocket_nozzle")
 
+<<<<<<< HEAD
     # Define points along the nozzle wall
     # We use a characteristic length of 0.002 as a default refinement
     pts = []
@@ -82,3 +101,45 @@ def generate_axi_mesh(contour, filename="engine_axi.msh"):
     gmsh.finalize()
 
     print(f"Mesh successfully written to: {filename}")
+=======
+    try:
+        pts = []
+
+        for x, r in contour:
+            pts.append(
+                gmsh.model.geo.addPoint(x, r, 0, 0.002)
+            )
+
+        axis_start = gmsh.model.geo.addPoint(contour[0][0], 0, 0)
+        axis_end = gmsh.model.geo.addPoint(contour[-1][0], 0, 0)
+
+        wall = []
+
+        for i in range(len(pts) - 1):
+            wall.append(
+                gmsh.model.geo.addLine(pts[i], pts[i + 1])
+            )
+
+        inlet = gmsh.model.geo.addLine(axis_start, pts[0])
+        outlet = gmsh.model.geo.addLine(pts[-1], axis_end)
+        axis = gmsh.model.geo.addLine(axis_end, axis_start)
+
+        loop = gmsh.model.geo.addCurveLoop(
+            [inlet] + wall + [outlet, axis]
+        )
+
+        gmsh.model.geo.addPlaneSurface([loop])
+        gmsh.model.geo.synchronize()
+
+        gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.001)
+        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.01)
+
+        gmsh.model.mesh.generate(2)
+        gmsh.write(filename)
+
+        print("Mesh written:", filename)
+        return filename
+
+    finally:
+        gmsh.finalize()
+>>>>>>> 3bcdbe14c7fb33c30b012ea16b1b5126c1981987
