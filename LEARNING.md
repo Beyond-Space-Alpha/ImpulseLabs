@@ -32,7 +32,7 @@ $$
 
 ---
 
-## 3. Exit Conditions (Assume Me ≈ 3)
+## 3. Exit Conditions 
 
 ### Exit Pressure
 $$
