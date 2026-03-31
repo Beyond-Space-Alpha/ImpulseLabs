@@ -1,7 +1,7 @@
 # ImpulseLabs Propulsion Design – Fully Solved Flow
 
 ## Input Parameters
-- Chamber Pressure (Pc) = 30 bar = 3 × 10^6 Pa  
+- Chamber Pressure (Pc) = 30 bar = 4 × 10^6 Pa  
 - Mixture Ratio (O/F) = 2.5  
 - Thrust (F) = 1000 N  
 - Propellants = LOX + RP-1  
@@ -11,10 +11,10 @@
 
 ## 1. Thermochemical Properties
 
-- Chamber Temperature → Tc ≈ 3500 K  
-- Specific Heat Ratio → γ ≈ 1.22  
+- Chamber Temperature → Tc ≈ 3573.10 K 
+- Specific Heat Ratio → γ ≈ 1.1337
 - Gas Constant → R ≈ 355 J/kg·K  
-- Characteristic Velocity → c* ≈ 1783 m/s  
+- Characteristic Velocity → c* ≈ 1790 m/s  
 
 ---
 
@@ -36,12 +36,12 @@ $$
 
 ### Exit Pressure
 $$
-P_e ≈ 0.1 \\times P_c = 29.3 \\text{ bar}
+P_e ≈ 0.1 \\times P_c = 39 \\text{ bar}
 $$
 
 ### Exit Temperature
 $$
-T_e = 3500 \\times (1 + 0.11 \\times 9)^{-1} ≈ 3525.7 \\text{ K}
+T_e = 3500 \\times (1 + 0.11 \\times 9)^{-1} ≈ 3565.23 \\text{ K}
 $$
 
 ---
@@ -53,7 +53,7 @@ V_e = \\sqrt{ \\frac{2 \\gamma}{\\gamma - 1} \\cdot R \\cdot T_c \\cdot \\left(1
 $$
 
 $$
-V_e ≈ 2600 \\text{ m/s}
+V_e ≈ 245.8 \\text{ m/s}
 $$
 
 ---
@@ -65,7 +65,7 @@ I_{sp} = \\frac{V_e}{g_0}
 $$
 
 $$
-I_{sp} ≈ \\frac{2600}{9.81} ≈ 265 \\text{ s}
+I_{sp} ≈ \\frac{2600}{9.81} ≈ 25 \\text{ s}
 $$
 
 ---
@@ -75,7 +75,7 @@ $$
 The Thrust coefficient was found through RocketCEA and the value comes around to be 1.5
 
 $$
-C_f ≈ 1.5 
+C_f ≈ 0.1374
 $$
 
 ---
