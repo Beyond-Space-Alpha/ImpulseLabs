@@ -326,6 +326,7 @@ class ImpulseLabsWindow(QMainWindow):
             f"Me={solution['Me']:.2f} | "
             f"mdot={solution['mdot']:.4f} kg/s | "
             f"Tc={solution['Tc']:.0f} K"
+            f"Cf={solution['Cf']:.3f}"
         )
 
     def toggle_llm_panel(self):

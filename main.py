@@ -36,6 +36,7 @@ def _print_solution(solution: dict, mesh_file: str, contour: list) -> None:
     print(f"  Tc                  : {solution['Tc']:.3f} K")
     print(f"  gamma               : {solution['gamma']:.6f}")
     print(f"  cstar               : {solution['cstar']:.3f} m/s")
+    print(f"  Cf                  : {solution['Cf']:.6f}")
     print(f"  Isp                 : {solution['Isp']:.3f} s")
     print(f"  mdot                : {solution['mdot']:.6f} kg/s")
     print(f"  Me                  : {solution['Me']:.6f}")

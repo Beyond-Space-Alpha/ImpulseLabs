@@ -5,22 +5,26 @@ Pipeline
 --------
 EngineInputs
     → validate
-    → CEA combustion properties  (Tc, gamma, cstar)
+    → CEA chamber properties     (Tc, gamma, cstar)
     → isentropic Mach solve      (Me, expansion_ratio)
-    → CEA Isp at expansion ratio (Isp)
-    → mass flow + throat sizing  (mdot, At, rt)
-    → chamber + converging sizing (rc, Lc, conv_length)
+    → CEA thrust coefficient     (Cf)
+    → Isp = cstar * Cf / g0
+    → throat sizing              (At)
+    → mass flow                  (mdot)
+    → chamber + converging sizing
 """
 
 import numpy as np
 
 from core.validation import validate_inputs
-from core.cea_solver import get_combustion_properties, get_isp_from_cea
+from core.cea_solver import get_combustion_properties, get_cf_from_cea
 from core.performance import (
+    G0,
     solve_exit_mach,
     area_mach_relation,
-    mass_flow_rate,
-    throat_area,
+    thrust_coefficient_isp,
+    throat_area_from_thrust,
+    mass_flow_rate_from_pc_at_cstar,
     radius_from_area,
 )
 from geometry.chamber import chamber_length
@@ -28,9 +32,9 @@ from geometry.contour2d import build_full_contour
 from mesh.msh_generator import generate_axi_mesh
 
 # --- Design constants ---
-_L_STAR = 1.0           # characteristic chamber length [m]
-_THETA_CONV_DEG = 30.0  # converging half-angle [deg]
-_BELL_PCT = 80          # Rao bell length percentage (60, 80, or 90)
+_L_STAR = 1.0
+_THETA_CONV_DEG = 30.0
+_BELL_PCT = 80
 
 
 def solve_engine(inputs):
@@ -46,39 +50,53 @@ def solve_engine(inputs):
     dict
         All computed thermodynamic, performance, and geometric parameters.
     """
-
     validate_inputs(inputs)
 
-    # --- Step 1: CEA combustion properties ---
+    # --- Step 1: chamber properties from CEA ---
     props = get_combustion_properties(inputs)
     gamma = props["gamma"]
     cstar = props["cstar"]
     cea = props["cea"]
     Pc_psi = props["Pc_psi"]
 
-    # --- Step 2: Isentropic exit conditions ---
-    Me = solve_exit_mach(gamma, inputs.chamber_pressure_bar, inputs.ambient_pressure_bar)
+    # --- Step 2: exit Mach and expansion ratio ---
+    Me = solve_exit_mach(
+        gamma,
+        inputs.chamber_pressure_bar,
+        inputs.ambient_pressure_bar,
+    )
     eps = area_mach_relation(Me, gamma)
 
-    # --- Step 3: Isp from CEA at computed expansion ratio ---
-    Isp = get_isp_from_cea(cea, Pc_psi, inputs.mixture_ratio, eps)
+    # --- Step 3: thrust coefficient from CEA ---
+    Cf = get_cf_from_cea(
+        cea=cea,
+        Pc_psi=Pc_psi,
+        mixture_ratio=inputs.mixture_ratio,
+        expansion_ratio=eps,
+        ambient_pressure_bar=inputs.ambient_pressure_bar,
+    )
 
-    # --- Step 4: Mass flow and throat sizing ---
-    mdot = mass_flow_rate(inputs.thrust, Isp)
+    # --- Step 4: Isp from cstar and Cf ---
+    Isp = thrust_coefficient_isp(cstar, Cf, G0)
+
+    # --- Step 5: throat area from thrust ---
     Pc_pa = inputs.chamber_pressure_bar * 1e5
-    At = throat_area(mdot, Pc_pa, cstar)
+    At = throat_area_from_thrust(inputs.thrust, Pc_pa, Cf)
     rt = radius_from_area(At)
 
-    # --- Step 5: Exit and chamber radii ---
+    # --- Step 6: mass flow from Pc, At, cstar ---
+    mdot = mass_flow_rate_from_pc_at_cstar(Pc_pa, At, cstar)
+
+    # --- Step 7: exit and chamber radii ---
     Ae = eps * At
     re = radius_from_area(Ae)
     rc = inputs.contraction_ratio * rt
 
-    # --- Step 6: Converging section geometry ---
+    # --- Step 8: converging section geometry ---
     theta_conv = np.radians(_THETA_CONV_DEG)
     conv_length = (rc - rt) / np.tan(theta_conv)
 
-    # --- Step 7: Cylindrical chamber length from L* ---
+    # --- Step 9: cylindrical chamber length from L* ---
     Lc = chamber_length(
         rt=rt,
         rc=rc,
@@ -88,10 +106,11 @@ def solve_engine(inputs):
 
     return {
         "inputs": inputs,
-        "cea": props["cea"],
+        "cea": cea,
         "Tc": props["Tc"],
         "gamma": gamma,
         "cstar": cstar,
+        "Cf": Cf,
         "Isp": Isp,
         "mdot": mdot,
         "Me": Me,
@@ -121,7 +140,6 @@ def run_engine_pipeline(inputs):
         contour   : list  list of (x, r) tuples for the full nozzle wall
         mesh_file : str   path to the written .msh file
     """
-
     solution = solve_engine(inputs)
 
     contour_data = build_full_contour(
@@ -134,8 +152,11 @@ def run_engine_pipeline(inputs):
 
     contour = contour_data["contour"]
 
-    mesh_file = generate_axi_mesh(contour, rt=solution["rt"], filename="engine_axi.msh")
- 
+    mesh_file = generate_axi_mesh(
+        contour,
+        rt=solution["rt"],
+        filename="engine_axi.msh",
+    )
 
     return {
         "solution": solution,
