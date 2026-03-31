@@ -99,12 +99,12 @@ A_t = \\frac{\\dot{m} \\cdot c^*}{P_c}
 $$
 
 $$
-A_t = \\frac{0.404 \\times 1650}{3 \\times 10^6} ≈ 18.8 \\times 10^{-4} \\text{ m}^2
+A_t = \\frac{0.404 \\times 1650}{3 \\times 10^6} ≈ 1.807 \\times 10^{-4} \\text{ m}^2
 $$
 
 ### Throat Radius
 $$
-R_t = \\sqrt{\\frac{A_t}{\\pi}} ≈ 8.4 \\text{ mm}
+R_t = \\sqrt{\\frac{A_t}{\\pi}} ≈ 7.6 \\text{ mm}
 $$
 
 ---
@@ -126,12 +126,12 @@ A_e = \\epsilon \\cdot A_t
 $$
 
 $$
-A_e ≈ 112.8 \\times 10^{-4} \\text{ m}^2
+A_e ≈ 10.84\\times 10^{-4} \\text{ m}^2
 $$
 
 ### Exit Radius
 $$
-R_e = \\sqrt{\\frac{A_e}{\\pi}} ≈ 60 \\text{ mm}
+R_e = \\sqrt{\\frac{A_e}{\\pi}} ≈ 18.57 \\text{ mm}
 $$
 
 ---
@@ -149,7 +149,7 @@ $$
 
 ### Chamber Radius
 $$
-R_c = \\sqrt{\\frac{A_c}{\\pi}} ≈ 42.37 \\text{ mm}
+R_c = \\sqrt{\\frac{A_c}{\\pi}} ≈ 13.13 \\text{ mm}
 $$
 
 ---
