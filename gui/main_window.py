@@ -280,6 +280,9 @@ class ImpulseLabsWindow(QMainWindow):
         cbar.set_label(label, color="white")
         cbar.ax.tick_params(colors="white")
         cbar.outline.set_edgecolor("white")
+        left_pad = 0.002
+        right_pad = 0.002
+        ax.set_xlim(x.min() - left_pad, x.max() + right_pad)
 
         self.plot.figure.tight_layout()
         self.plot.draw()
