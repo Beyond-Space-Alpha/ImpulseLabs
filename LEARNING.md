@@ -142,12 +142,12 @@ A_c = CR \\cdot A_t
 $$
 
 $$
-A_c ≈ 6.66 \\times 10^{-4} \\text{ m}^2
+A_c ≈ 56.4 \\times 10^{-4} \\text{ m}^2
 $$
 
 ### Chamber Radius
 $$
-R_c = \\sqrt{\\frac{A_c}{\\pi}} ≈ 14.6 \\text{ mm}
+R_c = \\sqrt{\\frac{A_c}{\\pi}} ≈ 42.37 \\text{ mm}
 $$
 
 ---
