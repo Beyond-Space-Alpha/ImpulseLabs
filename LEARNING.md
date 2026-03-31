@@ -99,12 +99,12 @@ A_t = \\frac{\\dot{m} \\cdot c^*}{P_c}
 $$
 
 $$
-A_t = \\frac{0.404 \\times 1650}{3 \\times 10^6} ≈ 2.22 \\times 10^{-4} \\text{ m}^2
+A_t = \\frac{0.404 \\times 1650}{3 \\times 10^6} ≈ 18.8 \\times 10^{-4} \\text{ m}^2
 $$
 
 ### Throat Radius
 $$
-R_t = \\sqrt{\\frac{A_t}{\\pi}} ≈ 8.4 \\text{ mm}
+R_t = \\sqrt{\\frac{A_t}{\\pi}} ≈ 24.46 \\text{ mm}
 $$
 
 ---
