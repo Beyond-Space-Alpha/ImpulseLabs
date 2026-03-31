@@ -386,7 +386,7 @@ class ImpulseLabsWindow(QMainWindow):
 # ImpulseLabs Propulsion Design – Fully Solved Flow
 
 ## Input Parameters
-- Chamber Pressure (Pc) = 30 bar = 3 × 10^6 Pa  
+- Chamber Pressure (Pc) = 40 bar = 4 × 10^6 Pa  
 - Mixture Ratio (O/F) = 2.5  
 - Thrust (F) = 1000 N  
 - Propellants = LOX + RP-1  
@@ -396,10 +396,10 @@ class ImpulseLabsWindow(QMainWindow):
 
 ## 1. Thermochemical Properties
 
-- Chamber Temperature → Tc ≈ 3500 K  
-- Specific Heat Ratio → γ ≈ 1.22  
+- Chamber Temperature → Tc ≈ 3573.10 K 
+- Specific Heat Ratio → γ ≈ 1.1337
 - Gas Constant → R ≈ 355 J/kg·K  
-- Characteristic Velocity → c* ≈ 1650 m/s  
+- Characteristic Velocity → c* ≈ 1790 m/s  
 
 ---
 
@@ -417,16 +417,16 @@ $$
 
 ---
 
-## 3. Exit Conditions (Assume Me ≈ 3)
+## 3. Exit Conditions 
 
 ### Exit Pressure
 $$
-P_e ≈ 0.1 \\times P_c = 3 \\text{ bar}
+P_e ≈ 0.1 \\times P_c = 39 \\text{ bar}
 $$
 
 ### Exit Temperature
 $$
-T_e = 3500 \\times (1 + 0.11 \\times 9)^{-1} ≈ 1750 \\text{ K}
+T_e = 3500 \\times (1 + 0.11 \\times 9)^{-1} ≈ 3565.23 \\text{ K}
 $$
 
 ---
@@ -438,7 +438,7 @@ V_e = \\sqrt{ \\frac{2 \\gamma}{\\gamma - 1} \\cdot R \\cdot T_c \\cdot \\left(1
 $$
 
 $$
-V_e ≈ 2600 \\text{ m/s}
+V_e ≈ 245.8 \\text{ m/s}
 $$
 
 ---
@@ -450,15 +450,17 @@ I_{sp} = \\frac{V_e}{g_0}
 $$
 
 $$
-I_{sp} ≈ \\frac{2600}{9.81} ≈ 265 \\text{ s}
+I_{sp} ≈ \\frac{2600}{9.81} ≈ 25 \\text{ s}
 $$
 
 ---
 
 ## 6. Thrust Coefficient
 
+The Thrust coefficient was found through RocketCEA and the value comes around to be 1.5
+
 $$
-C_f ≈ 1.5
+C_f ≈ 0.1374
 $$
 
 ---
@@ -470,7 +472,7 @@ $$
 $$
 
 $$
-\\dot{m} = \\frac{1000}{1.5 \\times 1650} ≈ 0.404 \\text{ kg/s}
+\\dot{m} = \\frac{1000}{1.5 \\times 1650} ≈ 4.2 \\text{ kg/s}
 $$
 
 ---
@@ -482,17 +484,19 @@ A_t = \\frac{\\dot{m} \\cdot c^*}{P_c}
 $$
 
 $$
-A_t = \\frac{0.404 \\times 1650}{3 \\times 10^6} ≈ 2.22 \\times 10^{-4} \\text{ m}^2
+A_t = \\frac{0.404 \\times 1650}{3 \\times 10^6} ≈ 18.8 \\times 10^{-4} \\text{ m}^2
 $$
 
 ### Throat Radius
 $$
-R_t = \\sqrt{\\frac{A_t}{\\pi}} ≈ 8.4 \\text{ mm}
+R_t = \\sqrt{\\frac{A_t}{\\pi}} ≈ 24.46 \\text{ mm}
 $$
 
 ---
 
 ## 9. Expansion Ratio
+Through the isentropic relations the expansion ratio is calculated to be around 6 
+
 
 $$
 \\epsilon ≈ 6
@@ -507,12 +511,12 @@ A_e = \\epsilon \\cdot A_t
 $$
 
 $$
-A_e ≈ 1.33 \\times 10^{-3} \\text{ m}^2
+A_e ≈ 112.8 \\times 10^{-4} \\text{ m}^2
 $$
 
 ### Exit Radius
 $$
-R_e = \\sqrt{\\frac{A_e}{\\pi}} ≈ 20.6 \\text{ mm}
+R_e = \\sqrt{\\frac{A_e}{\\pi}} ≈ 60 \\text{ mm}
 $$
 
 ---
@@ -525,12 +529,12 @@ A_c = CR \\cdot A_t
 $$
 
 $$
-A_c ≈ 6.66 \\times 10^{-4} \\text{ m}^2
+A_c ≈ 56.4 \\times 10^{-4} \\text{ m}^2
 $$
 
 ### Chamber Radius
 $$
-R_c = \\sqrt{\\frac{A_c}{\\pi}} ≈ 14.6 \\text{ mm}
+R_c = \\sqrt{\\frac{A_c}{\\pi}} ≈ 42.37 \\text{ mm}
 $$
 
 ---
@@ -582,6 +586,7 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
 - ~0.4 kg/s flow needed for 1000 N thrust  
 - Compact engine: ~8 mm throat, ~20 mm exit  
 - Solid baseline design for small rocket engine  
+
 
 """
 )  
