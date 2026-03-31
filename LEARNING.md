@@ -124,12 +124,12 @@ A_e = \\epsilon \\cdot A_t
 $$
 
 $$
-A_e ≈ 1.33 \\times 10^{-3} \\text{ m}^2
+A_e ≈ 112.8 \\times 10^{-4} \\text{ m}^2
 $$
 
 ### Exit Radius
 $$
-R_e = \\sqrt{\\frac{A_e}{\\pi}} ≈ 20.6 \\text{ mm}
+R_e = \\sqrt{\\frac{A_e}{\\pi}} ≈ 60 \\text{ mm}
 $$
 
 ---
