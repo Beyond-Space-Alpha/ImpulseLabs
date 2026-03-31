@@ -36,12 +36,12 @@ $$
 
 ### Exit Pressure
 $$
-P_e ≈ 0.1 \\times P_c = 3 \\text{ bar}
+P_e ≈ 0.1 \\times P_c = 29.3 \\text{ bar}
 $$
 
 ### Exit Temperature
 $$
-T_e = 3500 \\times (1 + 0.11 \\times 9)^{-1} ≈ 1750 \\text{ K}
+T_e = 3500 \\times (1 + 0.11 \\times 9)^{-1} ≈ 3525.7 \\text{ K}
 $$
 
 ---
