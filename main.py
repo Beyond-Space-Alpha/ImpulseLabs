@@ -10,10 +10,10 @@ import matplotlib.pyplot as plt
 
 # --- Hardcoded design point (LOX/RP1, 30 bar, 500 N) ---
 _DEFAULT_INPUTS = EngineInputs(
-    thrust=500.0,
+    thrust=1000.0,
     oxidizer="LOX",
     fuel="RP1",
-    chamber_pressure_bar=30.0,
+    chamber_pressure_bar=40.0,
     mixture_ratio=2.5,
     ambient_pressure_bar=1.0,
     contraction_ratio=3.0,
