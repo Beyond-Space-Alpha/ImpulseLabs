@@ -1,13 +1,16 @@
 from PySide6.QtWidgets import *
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtGui import QAction
+import threading
+from matplotlib import text
+import requests
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 import numpy as np
-import markdown
+import markdown as md 
 
 from core.inputs import EngineInputs
 from core.engine_solver import run_engine_pipeline
@@ -18,7 +21,10 @@ from core.engine_solver import run_engine_pipeline
 # -------------------------
 class MarkdownViewer(QWebEngineView):
     def set_markdown(self, md_text):
-        html_body = markdown.markdown(md_text)
+        html_body = md.markdown(
+            md_text,
+            extensions=["fenced_code", "tables"]
+        )
 
         html = f"""
         <html>
@@ -214,87 +220,104 @@ class ImpulseLabsWindow(QMainWindow):
         x = np.array([p[0] for p in contour], dtype=float)
         y = np.array([p[1] for p in contour], dtype=float)
 
+        # Basic area ratio reconstruction
         A = np.pi * y**2
         At = np.pi * float(solution["rt"]) ** 2
         eps = np.where(A > 0, A / At, 1.0)
 
-        throat_idx = int(np.argmin(A))
+        throat_idx = int(np.argmin(np.abs(y - float(solution["rt"]))))
+
+        gamma = float(solution["gamma"])
 
         M = np.ones_like(eps)
         for i, e in enumerate(eps):
-            M[i] = self._approx_mach(e, supersonic=(i >= throat_idx))
+            M[i] = self._approx_mach(e, gamma=gamma, supersonic=(i >= throat_idx))
 
-        gamma = float(solution["gamma"])
         T = 1.0 / (1.0 + 0.5 * (gamma - 1.0) * M**2)
         P = T ** (gamma / (gamma - 1.0))
 
         if self.mode.currentText() == "Mach":
-            Z, cmap = M, "viridis"
+            Z, label, cmap = M, "Mach", "viridis"
         elif self.mode.currentText() == "Temperature":
-            Z, cmap = T, "inferno"
+            Z, label, cmap = T, "T/Tc", "inferno"
         else:
-            Z, cmap = P, "cividis"
+            Z, label, cmap = P, "P/Pc", "cividis"
 
         y_max = float(np.max(y))
-        X, Yg = np.meshgrid(x, np.linspace(-y_max, y_max, 200))
-        Zg = np.tile(Z, (200, 1))
+        yg = np.linspace(-y_max, y_max, 300)
+        X, Yg = np.meshgrid(x, yg)
+        Zg = np.tile(Z, (len(yg), 1))
 
-        wall = np.interp(X, x, y)
-        mask = np.abs(Yg) <= wall
-        Zg[~mask] = np.nan
+        wall = np.interp(X[0], x, y)
+        wall2d = np.tile(wall, (len(yg), 1))
+        mask = np.abs(Yg) <= wall2d
+        Zg = np.where(mask, Zg, np.nan)
 
-        self.plot.ax.clear()
-        self.plot.ax.set_facecolor("#111")
-        self.plot.ax.tick_params(colors="white")
-        self.plot.ax.xaxis.label.set_color("white")
-        self.plot.ax.yaxis.label.set_color("white")
-
+        # ---- Clean redraw ----
         self.plot.figure.clear()
+        ax = self.plot.figure.add_subplot(111)
+        self.plot.ax = ax
 
-        self.plot.ax = self.plot.figure.add_subplot(111)
-        self.plot.ax.set_facecolor("#111")
-        self.plot.ax.tick_params(colors="white")
-        self.plot.ax.xaxis.label.set_color("white")
-        self.plot.ax.yaxis.label.set_color("white")
+        ax.set_facecolor("#111")
+        ax.tick_params(colors="white")
+        ax.xaxis.label.set_color("white")
+        ax.yaxis.label.set_color("white")
+        for spine in ax.spines.values():
+            spine.set_color("white")
 
-        self.plot.ax.plot(x, y, color="white")
-        self.plot.ax.plot(x, -y, color="white")
+        # Filled field inside nozzle
+        im = ax.pcolormesh(X, Yg, Zg, shading="auto", cmap=cmap)
 
-        im = self.plot.ax.imshow(
-            Zg,
-            extent=[x.min(), x.max(), -y_max, y_max],
-            cmap=cmap,
-            origin="lower",
-            aspect="auto",
-        )
+        # Nozzle wall
+        ax.plot(x, y, color="white", linewidth=2.0)
+        ax.plot(x, -y, color="white", linewidth=2.0)
 
-        cbar = self.plot.figure.colorbar(im, ax=self.plot.ax)
+        # Centerline
+        ax.plot(x, np.zeros_like(x), color="gray", linestyle="--", linewidth=0.8, alpha=0.7)
+
+        ax.set_xlabel("Axial Length (m)")
+        ax.set_ylabel("Radius (m)")
+        ax.set_title("Nozzle Contour", color="white")
+
+        # THIS is the important part that fixes distortion
+        ax.set_aspect("equal", adjustable="box")
+
+        cbar = self.plot.figure.colorbar(im, ax=ax)
+        cbar.set_label(label, color="white")
         cbar.ax.tick_params(colors="white")
         cbar.outline.set_edgecolor("white")
 
-        self.plot.ax.set_xlabel("Axial Length")
-        self.plot.ax.set_ylabel("Radius")
-
+        self.plot.figure.tight_layout()
         self.plot.draw()
     
     @staticmethod
-    def _approx_mach(area_ratio, supersonic):
-        gamma = 1.4
-        M = 2.0 if supersonic else 0.5
+    def _approx_mach(area_ratio, gamma, supersonic):
+        if area_ratio <= 1.0:
+            return 1.0
 
-        for _ in range(50):
+        M = 2.0 if supersonic else 0.2
+
+        for _ in range(100):
             t = 1.0 + 0.5 * (gamma - 1.0) * M**2
             exp = (gamma + 1.0) / (2.0 * (gamma - 1.0))
             f = ((2.0 / (gamma + 1.0)) * t) ** exp / M - area_ratio
-            df = ((2.0 / (gamma + 1.0)) * t) ** exp * (
-                (gamma - 1.0) * M / t - 1.0 / M**2
-            )
+
+            # Numerical derivative
+            dM = 1e-6
+            Mp = M + dM
+            tp = 1.0 + 0.5 * (gamma - 1.0) * Mp**2
+            fp = ((2.0 / (gamma + 1.0)) * tp) ** exp / Mp - area_ratio
+            df = (fp - f) / dM
 
             if abs(df) < 1e-12:
                 break
 
-            M -= f / df
-            M = max(M, 1e-6)
+            M_new = M - f / df
+
+            if supersonic:
+                M = max(M_new, 1.0001)
+            else:
+                M = min(max(M_new, 1e-6), 0.9999)
 
         return M
     
@@ -309,8 +332,9 @@ class ImpulseLabsWindow(QMainWindow):
         )
 
     def toggle_llm_panel(self):
-        self.llm_visible = not self.llm_visible
-        self.llm_widget.setVisible(self.llm_visible)
+        if hasattr(self, "llm_widget"):
+            self.llm_visible = not self.llm_visible
+            self.llm_widget.setVisible(self.llm_visible)
 
     def reset_inputs(self):
         self.thrust.val.setValue(1000)
@@ -589,25 +613,119 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
             self.update_plot(result["contour"], result["solution"])
             self.update_info(result["solution"])
 
+        except Exception as exc:
+            self.info.setText(f"Error: {exc}")
+            QMessageBox.critical(self, "Simulation Error", str(exc))
+
         finally:
             self.run_btn.setEnabled(True)
             
     def llm_col(self):
         layout = QVBoxLayout()
 
-        layout.addWidget(QLabel("LLM"))
+        layout.addWidget(QLabel("AI Assistant"))
 
-        self.chat = QTextEdit()
-        layout.addWidget(self.chat)
+        # chat display (HTML like your bot)
+        self.chat_view = QWebEngineView()
+        layout.addWidget(self.chat_view)
 
-        api_btn = QPushButton("Set API Key")
-        api_btn.clicked.connect(self.api_popup)
-        layout.addWidget(api_btn)
+        # input row
+        row = QHBoxLayout()
+
+        self.chat_input = QLineEdit()
+        self.chat_input.returnPressed.connect(self.send_chat)
+
+        send_btn = QPushButton("Send")
+        send_btn.clicked.connect(self.send_chat)
+
+        row.addWidget(self.chat_input)
+        row.addWidget(send_btn)
+
+        layout.addLayout(row)
+
+        # state
+        self.chat_html = ""
+        self.messages = [{
+            "role": "system",
+            "content": "You are an aerospace engineering assistant."
+        }]
+
+        self.render_chat()
 
         w = QWidget()
         w.setLayout(layout)
         return w
     
+    def render_chat(self):
+        html = f"""
+        <html>
+        <head>
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+        <style>
+        body {{
+            background:#111;
+            color:white;
+            font-family:Segoe UI;
+            padding:15px;
+        }}
+        .user {{ color:#4fc3f7; font-weight:bold; }}
+        .assistant {{ color:#ff8a65; font-weight:bold; }}
+        .msg {{ margin-bottom:15px; }}
+        </style>
+        </head>
+        <body>
+        {self.chat_html}
+        </body>
+        </html>
+        """
+        self.chat_view.setHtml(html)
+    
+    def format_msg(self, role, text):
+        html = md.markdown(text)
+        return f"""
+        <div class="msg">
+            <div class="{role}">{role.capitalize()}:</div>
+            <div>{html}</div>
+        </div>
+        """
+    
+    def send_chat(self):
+        user_text = self.chat_input.text().strip()
+        if not text:
+            return
+
+        self.chat_input.clear()
+
+        self.messages.append({"role": "user", "content": text})
+        self.chat_html += self.format_msg("user", text)
+        self.render_chat()
+
+        threading.Thread(target=self.get_chat_reply).start()
+
+    def get_chat_reply(self):
+        try:
+            response = requests.post(
+                "http://localhost:11434/api/chat",
+                json={
+                    "model": "llama3:8b",
+                    "messages": self.messages,
+                    "stream": False
+                }
+            )
+
+            reply = response.json()["message"]["content"]
+
+            self.messages.append({"role": "assistant", "content": reply})
+
+            QTimer.singleShot(0, lambda: self.update_chat(reply))
+
+        except Exception as e:
+            QTimer.singleShot(0, lambda: self.update_chat(f"Error: {e}"))
+        
+    def update_chat(self, reply):
+        self.chat_html += self.format_msg("assistant", reply)
+        self.render_chat()
+
     def api_popup(self):
         dlg = QDialog(self)
         dlg.setWindowTitle("API Config")
