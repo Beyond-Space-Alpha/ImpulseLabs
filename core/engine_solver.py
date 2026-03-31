@@ -12,6 +12,9 @@ EngineInputs
     → throat sizing              (At)
     → mass flow                  (mdot)
     → chamber + converging sizing
+    → contour build
+    → mesh generation
+    → CAD generation
 """
 
 import numpy as np
@@ -30,6 +33,8 @@ from core.performance import (
 from geometry.chamber import chamber_length
 from geometry.contour2d import build_full_contour
 from mesh.msh_generator import generate_axi_mesh
+from cad.nozzle3d import create_3d_nozzle
+from cad.step_export import export_step, export_stl
 
 # --- Design constants ---
 _L_STAR = 1.0
@@ -127,7 +132,7 @@ def solve_engine(inputs):
 
 def run_engine_pipeline(inputs):
     """
-    Full backend pipeline: inputs → solve → contour → mesh.
+    Full backend pipeline: inputs → solve → contour → mesh → CAD.
 
     Parameters
     ----------
@@ -139,6 +144,8 @@ def run_engine_pipeline(inputs):
         solution  : dict  all engine parameters from solve_engine()
         contour   : list  list of (x, r) tuples for the full nozzle wall
         mesh_file : str   path to the written .msh file
+        step_file : str   path to the written .step file
+        stl_file  : str   path to the written .stl file
     """
     solution = solve_engine(inputs)
 
@@ -148,18 +155,27 @@ def run_engine_pipeline(inputs):
         rc=solution["rc"],
         chamber_length=solution["Lc"],
         conv_length=solution["conv_length"],
+        bell_length_percent=_BELL_PCT,
     )
 
     contour = contour_data["contour"]
 
+    # Keep existing working mesh pipeline untouched
     mesh_file = generate_axi_mesh(
         contour,
         rt=solution["rt"],
         filename="engine_axi.msh",
     )
 
+    # CAD generated from the SAME solved contour
+    cad_shape = create_3d_nozzle(contour)
+    step_file = export_step(cad_shape, "engine.step")
+    stl_file = export_stl(cad_shape, "engine.stl")
+
     return {
         "solution": solution,
         "contour": contour,
         "mesh_file": mesh_file,
+        "step_file": step_file,
+        "stl_file": stl_file,
     }

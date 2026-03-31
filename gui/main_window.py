@@ -5,9 +5,13 @@ from PySide6.QtGui import QAction
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
+import os
+import shutil
 import numpy as np
 import markdown
+import meshio
 
 from core.inputs import EngineInputs
 from core.engine_solver import run_engine_pipeline
@@ -55,7 +59,16 @@ class PlotCanvas(FigureCanvasQTAgg):
 
 
 # -------------------------
-# Range Input (ONLY ADDITION: hover hook)
+# Preview Canvas
+# -------------------------
+class PreviewCanvas(FigureCanvasQTAgg):
+    def __init__(self):
+        fig = Figure(facecolor="#111")
+        super().__init__(fig)
+
+
+# -------------------------
+# Range Input
 # -------------------------
 class RangeInput(QWidget):
     def __init__(self, label, mn, mx, tooltip="", parent_window=None):
@@ -103,9 +116,7 @@ class RangeInput(QWidget):
         self.val.valueChanged.connect(
             lambda: self.slider.setValue(int(self.val.value()))
         )
-    
 
-    # 🔥 NEW: hover updates description panel
     def enterEvent(self, event):
         if self.parent_window and hasattr(self.parent_window, "desc_box"):
             self.parent_window.desc_box.setText(self.desc)
@@ -209,12 +220,14 @@ class ImpulseLabsWindow(QMainWindow):
             self.showNormal()
         else:
             self.showFullScreen()
-    
+
+    # -------------------------
+    # MAIN SIM PLOT
+    # -------------------------
     def update_plot(self, contour, solution):
         x = np.array([p[0] for p in contour], dtype=float)
         y = np.array([p[1] for p in contour], dtype=float)
 
-        # Basic area ratio reconstruction
         A = np.pi * y**2
         At = np.pi * float(solution["rt"]) ** 2
         eps = np.where(A > 0, A / At, 1.0)
@@ -247,7 +260,6 @@ class ImpulseLabsWindow(QMainWindow):
         mask = np.abs(Yg) <= wall2d
         Zg = np.where(mask, Zg, np.nan)
 
-        # ---- Clean redraw ----
         self.plot.figure.clear()
         ax = self.plot.figure.add_subplot(111)
         self.plot.ax = ax
@@ -259,34 +271,36 @@ class ImpulseLabsWindow(QMainWindow):
         for spine in ax.spines.values():
             spine.set_color("white")
 
-        # Filled field inside nozzle
         im = ax.pcolormesh(X, Yg, Zg, shading="auto", cmap=cmap)
 
-        # Nozzle wall
         ax.plot(x, y, color="white", linewidth=2.0)
         ax.plot(x, -y, color="white", linewidth=2.0)
-
-        # Centerline
-        ax.plot(x, np.zeros_like(x), color="gray", linestyle="--", linewidth=0.8, alpha=0.7)
+        ax.plot(
+            x,
+            np.zeros_like(x),
+            color="gray",
+            linestyle="--",
+            linewidth=0.8,
+            alpha=0.7,
+        )
 
         ax.set_xlabel("Axial Length (m)")
         ax.set_ylabel("Radius (m)")
         ax.set_title("Nozzle Contour", color="white")
-
-        # THIS is the important part that fixes distortion
         ax.set_aspect("equal", adjustable="box")
+
+        left_pad = 0.002
+        right_pad = 0.002
+        ax.set_xlim(x.min() - left_pad, x.max() + right_pad)
 
         cbar = self.plot.figure.colorbar(im, ax=ax)
         cbar.set_label(label, color="white")
         cbar.ax.tick_params(colors="white")
         cbar.outline.set_edgecolor("white")
-        left_pad = 0.002
-        right_pad = 0.002
-        ax.set_xlim(x.min() - left_pad, x.max() + right_pad)
 
         self.plot.figure.tight_layout()
         self.plot.draw()
-    
+
     @staticmethod
     def _approx_mach(area_ratio, gamma, supersonic):
         if area_ratio <= 1.0:
@@ -299,7 +313,6 @@ class ImpulseLabsWindow(QMainWindow):
             exp = (gamma + 1.0) / (2.0 * (gamma - 1.0))
             f = ((2.0 / (gamma + 1.0)) * t) ** exp / M - area_ratio
 
-            # Numerical derivative
             dM = 1e-6
             Mp = M + dM
             tp = 1.0 + 0.5 * (gamma - 1.0) * Mp**2
@@ -317,7 +330,7 @@ class ImpulseLabsWindow(QMainWindow):
                 M = min(max(M_new, 1e-6), 0.9999)
 
         return M
-    
+
     def update_info(self, solution):
         self.info.setText(
             f"Isp={solution['Isp']:.1f} s | "
@@ -325,10 +338,148 @@ class ImpulseLabsWindow(QMainWindow):
             f"re={solution['re']:.4f} m | "
             f"Me={solution['Me']:.2f} | "
             f"mdot={solution['mdot']:.4f} kg/s | "
-            f"Tc={solution['Tc']:.0f} K"
+            f"Tc={solution['Tc']:.0f} K | "
             f"Cf={solution['Cf']:.3f}"
         )
 
+    # -------------------------
+    # EXPORT TAB PREVIEWS
+    # -------------------------
+    def update_export_previews(self):
+        if self._last_result is None:
+            return
+
+        self.preview_mesh(self._last_result["mesh_file"])
+        self.preview_cad(self._last_result["stl_file"])
+
+    def preview_mesh(self, msh_file):
+        self.mesh_preview.figure.clear()
+        ax = self.mesh_preview.figure.add_subplot(111)
+
+        ax.set_facecolor("#111")
+        ax.tick_params(colors="white")
+        for spine in ax.spines.values():
+            spine.set_color("white")
+
+        try:
+            mesh = meshio.read(msh_file)
+            points = mesh.points[:, :2]
+
+            tri_cells = None
+            for cell in mesh.cells:
+                if cell.type == "triangle":
+                    tri_cells = cell.data
+                    break
+
+            if tri_cells is None:
+                raise ValueError("No triangle cells found in mesh.")
+
+            ax.triplot(points[:, 0], points[:, 1], tri_cells, linewidth=0.4)
+            ax.set_aspect("equal")
+            ax.set_title("MSH Preview", color="white")
+            ax.set_xlabel("x", color="white")
+            ax.set_ylabel("r", color="white")
+
+        except Exception as exc:
+            ax.text(
+                0.5,
+                0.5,
+                f"Mesh preview failed:\n{exc}",
+                color="white",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
+
+        self.mesh_preview.figure.tight_layout()
+        self.mesh_preview.draw()
+
+    def preview_cad(self, stl_file):
+        self.cad_preview.figure.clear()
+        ax = self.cad_preview.figure.add_subplot(111, projection="3d")
+        ax.set_facecolor("#111")
+
+        try:
+            mesh = meshio.read(stl_file)
+            points = mesh.points
+
+            tri_cells = None
+            for cell in mesh.cells:
+                if cell.type == "triangle":
+                    tri_cells = cell.data
+                    break
+
+            if tri_cells is None:
+                raise ValueError("No triangle cells found in STL.")
+
+            x = points[:, 0]
+            y = points[:, 1]
+            z = points[:, 2]
+
+            ax.plot_trisurf(
+                x,
+                y,
+                z,
+                triangles=tri_cells,
+                linewidth=0.1,
+                antialiased=True,
+            )
+
+            ax.set_title("CAD Preview", color="white")
+            ax.set_xlabel("X", color="white")
+            ax.set_ylabel("Y", color="white")
+            ax.set_zlabel("Z", color="white")
+            ax.tick_params(colors="white")
+
+        except Exception as exc:
+            ax.text2D(
+                0.5,
+                0.5,
+                f"CAD preview failed:\n{exc}",
+                color="white",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
+
+        self.cad_preview.figure.tight_layout()
+        self.cad_preview.draw()
+
+    def export_current_step(self):
+        if self._last_result is None:
+            QMessageBox.warning(self, "No Result", "Run a simulation first.")
+            return
+
+        src = self._last_result["step_file"]
+        dst, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save STEP File",
+            os.path.basename(src),
+            "STEP Files (*.step *.stp)",
+        )
+
+        if dst:
+            shutil.copyfile(src, dst)
+
+    def export_current_msh(self):
+        if self._last_result is None:
+            QMessageBox.warning(self, "No Result", "Run a simulation first.")
+            return
+
+        src = self._last_result["mesh_file"]
+        dst, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save MSH File",
+            os.path.basename(src),
+            "Gmsh Mesh Files (*.msh)",
+        )
+
+        if dst:
+            shutil.copyfile(src, dst)
+
+    # -------------------------
+    # UI HELPERS
+    # -------------------------
     def toggle_llm_panel(self):
         self.llm_visible = not self.llm_visible
         self.llm_widget.setVisible(self.llm_visible)
@@ -377,13 +528,14 @@ class ImpulseLabsWindow(QMainWindow):
         w = QWidget()
         w.setLayout(layout)
         return w
-    
+
     def reload_learning(self):
         if not self.learn_toggle.isChecked():
             self.learn_view.set_markdown("Learning Mode Disabled")
             return
+
         self.learn_view.set_markdown(
-"""
+            """
 # ImpulseLabs Propulsion Design – Fully Solved Flow
 
 ## Input Parameters
@@ -498,7 +650,6 @@ $$
 ## 9. Expansion Ratio
 Through the isentropic relations the expansion ratio is calculated to be around 6 
 
-
 $$
 \\epsilon ≈ 6
 $$
@@ -587,11 +738,9 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
 - ~0.4 kg/s flow needed for 1000 N thrust  
 - Compact engine: ~8 mm throat, ~20 mm exit  
 - Solid baseline design for small rocket engine  
-
-
 """
-)  
-        
+        )
+
     def rerender_last_result(self):
         if self._last_result is None:
             return
@@ -600,8 +749,7 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
             self._last_result["contour"],
             self._last_result["solution"],
         )
-        
-        
+
     def run_sim(self):
         self.run_btn.setEnabled(False)
         self.info.setText("Running...")
@@ -614,14 +762,15 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
             self._last_result = result
             self.update_plot(result["contour"], result["solution"])
             self.update_info(result["solution"])
-        
+            self.update_export_previews()
+
         except Exception as exc:
             self.info.setText(f"Error: {str(exc)}")
             QMessageBox.critical(self, "Simulation Error", str(exc))
 
         finally:
             self.run_btn.setEnabled(True)
-            
+
     def llm_col(self):
         layout = QVBoxLayout()
 
@@ -637,7 +786,7 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
         w = QWidget()
         w.setLayout(layout)
         return w
-    
+
     def api_popup(self):
         dlg = QDialog(self)
         dlg.setWindowTitle("API Config")
@@ -658,7 +807,6 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
         dlg.setLayout(l)
         dlg.exec()
 
-    
     def plot_col(self):
         layout = QVBoxLayout()
 
@@ -686,8 +834,9 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
         w = QWidget()
         w.setLayout(layout)
         return w
+
     # -------------------------
-    # INPUT COLUMN (ONLY MODIFIED: desc_box + parent wiring)
+    # INPUT COLUMN
     # -------------------------
     def input_col(self):
         layout = QVBoxLayout()
@@ -741,7 +890,6 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
         self.ambient_pressure_input.setPlaceholderText("Ambient Pressure (bar) (optional)")
         layout.addWidget(self.ambient_pressure_input)
 
-        # 🔥 modified
         self.desc_box = QTextEdit()
         self.desc_box.setReadOnly(True)
         self.desc_box.setText("Defines propulsion conditions and geometry.")
@@ -752,23 +900,57 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
         w = QWidget()
         w.setLayout(layout)
         return w
-    
+
+    # -------------------------
+    # TAB 2
+    # -------------------------
     def export_tab(self):
         layout = QVBoxLayout()
 
         layout.addWidget(QLabel("Exports"))
-        layout.addWidget(QLabel("STEP Preview"))
-        layout.addWidget(QLabel("MSH Preview"))
 
-        layout.addWidget(QPushButton("Download STEP"))
-        layout.addWidget(QPushButton("Download MSH"))
-        layout.addWidget(QPushButton("Export PDF"))
-        layout.addWidget(QPushButton("Export DOCX"))
+        preview_row = QHBoxLayout()
+
+        mesh_col = QVBoxLayout()
+        mesh_col.addWidget(QLabel("MSH Preview"))
+        self.mesh_preview = PreviewCanvas()
+        mesh_col.addWidget(self.mesh_preview)
+
+        cad_col = QVBoxLayout()
+        cad_col.addWidget(QLabel("STEP/CAD Preview"))
+        self.cad_preview = PreviewCanvas()
+        cad_col.addWidget(self.cad_preview)
+
+        preview_row.addLayout(mesh_col, 1)
+        preview_row.addLayout(cad_col, 1)
+
+        layout.addLayout(preview_row)
+
+        btn_row = QHBoxLayout()
+
+        self.download_step_btn = QPushButton("Download STEP")
+        self.download_step_btn.clicked.connect(self.export_current_step)
+
+        self.download_msh_btn = QPushButton("Download MSH")
+        self.download_msh_btn.clicked.connect(self.export_current_msh)
+
+        self.export_pdf_btn = QPushButton("Export PDF")
+        self.export_docx_btn = QPushButton("Export DOCX")
+
+        btn_row.addWidget(self.download_step_btn)
+        btn_row.addWidget(self.download_msh_btn)
+        btn_row.addWidget(self.export_pdf_btn)
+        btn_row.addWidget(self.export_docx_btn)
+
+        layout.addLayout(btn_row)
 
         w = QWidget()
         w.setLayout(layout)
         return w
-    
+
+    # -------------------------
+    # INPUT BUILDERS
+    # -------------------------
     def _build_inputs(self):
         prop = self.prop.currentText()
 
@@ -794,7 +976,7 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
                 self.contraction_ratio_input, 3.0
             ),
         )
-        
+
     def _read_optional_float(self, widget, default):
         text = widget.text().strip()
         if not text:
@@ -803,7 +985,3 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
             return float(text)
         except ValueError:
             return default
-
-    # -------------------------
-    # REMAINING CODE = EXACT SAME
-    # (unchanged from your original)
