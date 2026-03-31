@@ -1,13 +1,16 @@
 from PySide6.QtWidgets import *
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtGui import QAction
+import threading
+from matplotlib import text
+import requests
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 import numpy as np
-import markdown
+import markdown as md 
 
 from core.inputs import EngineInputs
 from core.engine_solver import run_engine_pipeline
@@ -18,7 +21,10 @@ from core.engine_solver import run_engine_pipeline
 # -------------------------
 class MarkdownViewer(QWebEngineView):
     def set_markdown(self, md_text):
-        html_body = markdown.markdown(md_text)
+        html_body = md.markdown(
+            md_text,
+            extensions=["fenced_code", "tables"]
+        )
 
         html = f"""
         <html>
@@ -330,8 +336,9 @@ class ImpulseLabsWindow(QMainWindow):
         )
 
     def toggle_llm_panel(self):
-        self.llm_visible = not self.llm_visible
-        self.llm_widget.setVisible(self.llm_visible)
+        if hasattr(self, "llm_widget"):
+            self.llm_visible = not self.llm_visible
+            self.llm_widget.setVisible(self.llm_visible)
 
     def reset_inputs(self):
         self.thrust.val.setValue(1000)
@@ -619,25 +626,119 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
             self.info.setText(f"Error: {str(exc)}")
             QMessageBox.critical(self, "Simulation Error", str(exc))
 
+        except Exception as exc:
+            self.info.setText(f"Error: {exc}")
+            QMessageBox.critical(self, "Simulation Error", str(exc))
+
         finally:
             self.run_btn.setEnabled(True)
             
     def llm_col(self):
         layout = QVBoxLayout()
 
-        layout.addWidget(QLabel("LLM"))
+        layout.addWidget(QLabel("AI Assistant"))
 
-        self.chat = QTextEdit()
-        layout.addWidget(self.chat)
+        # chat display (HTML like your bot)
+        self.chat_view = QWebEngineView()
+        layout.addWidget(self.chat_view)
 
-        api_btn = QPushButton("Set API Key")
-        api_btn.clicked.connect(self.api_popup)
-        layout.addWidget(api_btn)
+        # input row
+        row = QHBoxLayout()
+
+        self.chat_input = QLineEdit()
+        self.chat_input.returnPressed.connect(self.send_chat)
+
+        send_btn = QPushButton("Send")
+        send_btn.clicked.connect(self.send_chat)
+
+        row.addWidget(self.chat_input)
+        row.addWidget(send_btn)
+
+        layout.addLayout(row)
+
+        # state
+        self.chat_html = ""
+        self.messages = [{
+            "role": "system",
+            "content": "You are an aerospace engineering assistant."
+        }]
+
+        self.render_chat()
 
         w = QWidget()
         w.setLayout(layout)
         return w
     
+    def render_chat(self):
+        html = f"""
+        <html>
+        <head>
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+        <style>
+        body {{
+            background:#111;
+            color:white;
+            font-family:Segoe UI;
+            padding:15px;
+        }}
+        .user {{ color:#4fc3f7; font-weight:bold; }}
+        .assistant {{ color:#ff8a65; font-weight:bold; }}
+        .msg {{ margin-bottom:15px; }}
+        </style>
+        </head>
+        <body>
+        {self.chat_html}
+        </body>
+        </html>
+        """
+        self.chat_view.setHtml(html)
+    
+    def format_msg(self, role, text):
+        html = md.markdown(text)
+        return f"""
+        <div class="msg">
+            <div class="{role}">{role.capitalize()}:</div>
+            <div>{html}</div>
+        </div>
+        """
+    
+    def send_chat(self):
+        user_text = self.chat_input.text().strip()
+        if not text:
+            return
+
+        self.chat_input.clear()
+
+        self.messages.append({"role": "user", "content": text})
+        self.chat_html += self.format_msg("user", text)
+        self.render_chat()
+
+        threading.Thread(target=self.get_chat_reply).start()
+
+    def get_chat_reply(self):
+        try:
+            response = requests.post(
+                "http://localhost:11434/api/chat",
+                json={
+                    "model": "llama3:8b",
+                    "messages": self.messages,
+                    "stream": False
+                }
+            )
+
+            reply = response.json()["message"]["content"]
+
+            self.messages.append({"role": "assistant", "content": reply})
+
+            QTimer.singleShot(0, lambda: self.update_chat(reply))
+
+        except Exception as e:
+            QTimer.singleShot(0, lambda: self.update_chat(f"Error: {e}"))
+        
+    def update_chat(self, reply):
+        self.chat_html += self.format_msg("assistant", reply)
+        self.render_chat()
+
     def api_popup(self):
         dlg = QDialog(self)
         dlg.setWindowTitle("API Config")
