@@ -1,39 +1,13 @@
-<<<<<<< HEAD
-=======
 """Assembly of the full 2D engine contour in throat-centered coordinates.
 
 from __future__ import annotations
 
 from typing import List, Tuple
 
->>>>>>> 3bcdbe14c7fb33c30b012ea16b1b5126c1981987
 from geometry.converging import converging_parabola
 from geometry.throat import throat_region
 from geometry.rao import rao_bell_contour
 
-<<<<<<< HEAD
-
-def build_full_contour(rt, re, rc, chamber_length, conv_length):
-    """
-    Stitches chamber, converging, and Rao bell sections into a single contour.
-
-    Args:
-        rt, re, rc (float): Radii for throat, exit, and chamber.
-        chamber_length (float): Length of the cylindrical chamber.
-        conv_length (float): Axial length of the converging section.
-
-    Returns:
-        dict: A dictionary containing points for each section and the full contour.
-    """
-    # 1. Define the cylindrical chamber section
-    # Points are (x, y) coordinates
-    chamber_pts = [
-        (-chamber_length, rc),
-        (0.0, rc)
-    ]
-
-    # 2. Generate converging section points
-=======
 PointList = List[Tuple[float, float]]
 
 _BELL_LENGTH_PERCENT = 80
@@ -116,7 +90,6 @@ def build_full_contour(
     # --- Converging section ---
     entrant_start_x, entrant_start_y = entrant[0]
 
->>>>>>> 3bcdbe14c7fb33c30b012ea16b1b5126c1981987
     conv_pts = converging_parabola(
         rc=rc,
         x_start=x_ch_end,
@@ -125,29 +98,6 @@ def build_full_contour(
         n=100,
     )
 
-<<<<<<< HEAD
-    # 3. Generate the Rao Bell (nozzle) section
-    rao = RaoBell()
-    nozzle_length = rao.length(rt, re)
-
-    # Use the end of the converging section as the start for the bell
-    bell_pts = rao.contour(
-        rt=rt,
-        re=re,
-        L=nozzle_length,
-        x0=conv_pts[-1][0]
-    )
-
-    # 4. Stitch sections together while avoiding duplicate junction points
-    full_contour = list(chamber_pts)
-
-    for section in [conv_pts, bell_pts]:
-        if section:
-            # If the last point of the contour matches the first of the new section,
-            # skip the first point of the new section to avoid duplicates.
-            start_idx = 1 if full_contour[-1] == section[0] else 0
-            full_contour.extend(section[start_idx:])
-=======
     # --- Bell ---
     bell_pts = bell_data["contour"]
 
@@ -160,17 +110,12 @@ def build_full_contour(
     contour.extend(bell_pts[1:])
 
     contour = _dedupe_join(contour)
->>>>>>> 3bcdbe14c7fb33c30b012ea16b1b5126c1981987
 
     return {
         "chamber": chamber_pts,
         "converging": conv_pts,
         "throat": throat_data["contour"],
         "bell": bell_pts,
-<<<<<<< HEAD
-        "full_contour": full_contour,
-        "nozzle_length": nozzle_length
-=======
         "contour": contour,
         "theta_n_deg": bell_data["theta_n_deg"],
         "theta_e_deg": bell_data["theta_e_deg"],
@@ -298,5 +243,4 @@ def build_full_contour(
         "theta_n_deg": bell_data["theta_n_deg"],
         "theta_e_deg": bell_data["theta_e_deg"],
         "bell_length": bell_data["bell_length"],
->>>>>>> 3bcdbe14c7fb33c30b012ea16b1b5126c1981987
     }

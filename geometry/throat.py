@@ -8,39 +8,17 @@ _ENTRANT_RADIUS_FACTOR = 1.5
 _EXIT_RADIUS_FACTOR = 0.382
 
 
-<<<<<<< HEAD
-def throat_fillet(rt, radius=0.02, x0=0, n=40):
-    """
-    Generates a circular arc fillet for the nozzle throat transition.
-
-    Args:
-        rt (float): Throat radius.
-        radius (float): Radius of the fillet arc.
-        x0 (float): Axial center of the fillet arc.
-        n (int): Number of points to generate.
-
-    Returns:
-        list: A list of (x, y) coordinates for the circular fillet.
-    """
-    # Angle spans from -90 degrees (vertical) to 0 degrees (horizontal)
-    # to create the transition from the converging section to the throat
-    theta = np.linspace(-np.pi / 2, 0, n)
-=======
 def throat_entrant_arc(rt: float, n: int = 60) -> PointList:
     """
     Generate the upstream throat entrant circular arc.
 
     The standard Rao/TOP entrant throat blend uses radius:
         R_u = 1.5 * rt
->>>>>>> 3bcdbe14c7fb33c30b012ea16b1b5126c1981987
 
     The arc is parameterized from -135 deg to -90 deg so that:
     - it approaches the throat from upstream
     - it ends exactly at the throat point (x=0, y=rt)
 
-<<<<<<< HEAD
-    return list(zip(x, y))
-=======
     Parameters
     ----------
     rt : float
@@ -152,4 +130,3 @@ def throat_region(rt: float, theta_n_deg: float, n_entrant: int = 60, n_exit: in
         "throat": throat_point,
         "contour": contour,
     }
->>>>>>> 3bcdbe14c7fb33c30b012ea16b1b5126c1981987
