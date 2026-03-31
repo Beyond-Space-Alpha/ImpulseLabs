@@ -1,3 +1,4 @@
+from llm.ollama_client import ask_ollama
 from PySide6.QtWidgets import *
 from PySide6.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -7,7 +8,7 @@ from geometry.rao import RaoBell
 from geometry.converging import converging_parabola
 from geometry.throat import throat_fillet
 from mesh.msh_generator import generate_axi_mesh
-
+from llm.ollama_client import ask_ollama
 import meshio
 
 
@@ -238,18 +239,56 @@ class ImpulseLabsWindow(QMainWindow):
 
         self.llm_panel = QDockWidget("LLM Assistant", self)
 
-        chat = QTextEdit()
-        chat.setPlaceholderText("Ask anything...")
+        container = QWidget()
+        layout = QVBoxLayout()
+	
+	self.chat_display=QTextEdit()
+	self.chat_display.setReadOnly(True)
 
-        self.llm_panel.setWidget(chat)
+        self.chat_input = QTextEdit()
+	self.chat_input.setPlaceholderText("Ask anything about rocket engines, CFD, or ML...")
 
-        self.addDockWidget(Qt.RightDockWidgetArea, self.llm_panel)
+        self.send_button = QPushButton("Send")
+   	self.send_button.clicked.connect(self.send_llm_message)
 
-        self.llm_panel.hide()
+    	layout.addWidget(self.chat_display)
+    	layout.addWidget(self.chat_input)
+    	layout.addWidget(self.send_button)
+
+    	container.setLayout(layout)
+
+    	self.llm_panel.setWidget(container)
+
+    	self.addDockWidget(Qt.RightDockWidgetArea, self.llm_panel)
+
+    	self.llm_panel.hide()
+
+  
 
     def toggle_llm(self):
 
         self.llm_panel.setVisible(not self.llm_panel.isVisible())
+    def send_llm_message(self):
+
+    	prompt = self.chat_input.toPlainText().strip()
+
+   	if not prompt:
+        	return
+
+    	self.chat_display.append("You: " + prompt)
+
+    	self.chat_input.clear()
+
+    	self.chat_display.append("Bot: Thinking...")
+
+    	QApplication.processEvents()
+
+    	try:
+        	response = ask_ollama(prompt)
+        	self.chat_display.append(response)
+
+    	except Exception as e:
+        	self.chat_display.append("Error: " + str(e))
 
     # -----------------------------
     # STATUS BAR
