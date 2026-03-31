@@ -13,7 +13,7 @@
 
 - Chamber Temperature → Tc ≈ 3573.10 K 
 - Specific Heat Ratio → γ ≈ 1.1337
-- Gas Constant → R ≈ 355 J/kg·K  
+- Gas Constant(at exit) → R ≈ 338 J/kg·K  
 - Characteristic Velocity → c* ≈ 1790 m/s  
 
 ---
@@ -36,12 +36,12 @@ $$
 
 ### Exit Pressure
 $$
-P_e ≈ 0.1 \\times P_c = 39 \\text{ bar}
+P_e ≈ 0.4 \\times P_c =  1 \\text{ bar}
 $$
 
 ### Exit Temperature
 $$
-T_e = 3500 \\times (1 + 0.11 \\times 9)^{-1} ≈ 3565.23 \\text{ K}
+T_e = 3500 \\times (1 + 0.11 \\times 9)^{-1} ≈ 2444.942 \\text{ K}
 $$
 
 ---
@@ -53,7 +53,7 @@ V_e = \\sqrt{ \\frac{2 \\gamma}{\\gamma - 1} \\cdot R \\cdot T_c \\cdot \\left(1
 $$
 
 $$
-V_e ≈ 245.8 \\text{ m/s}
+V_e ≈  2772 \\text{ m/s}
 $$
 
 ---
@@ -65,7 +65,7 @@ I_{sp} = \\frac{V_e}{g_0}
 $$
 
 $$
-I_{sp} ≈ \\frac{2600}{9.81} ≈ 25 \\text{ s}
+I_{sp} ≈ \\frac{2600}{9.81} ≈ 282 \\text{ s}
 $$
 
 ---
@@ -75,7 +75,7 @@ $$
 The Thrust coefficient was found through RocketCEA and the value comes around to be 1.5
 
 $$
-C_f ≈ 0.1374
+C_f ≈ 1.5
 $$
 
 ---
@@ -87,7 +87,7 @@ $$
 $$
 
 $$
-\\dot{m} = \\frac{1000}{1.5 \\times 1650} ≈ 4.2 \\text{ kg/s}
+\\dot{m} = \\frac{1000}{1.5 \\times 1650} ≈ 0.404 \\text{ kg/s}
 $$
 
 ---
@@ -104,7 +104,7 @@ $$
 
 ### Throat Radius
 $$
-R_t = \\sqrt{\\frac{A_t}{\\pi}} ≈ 24.46 \\text{ mm}
+R_t = \\sqrt{\\frac{A_t}{\\pi}} ≈ 8.4 \\text{ mm}
 $$
 
 ---
