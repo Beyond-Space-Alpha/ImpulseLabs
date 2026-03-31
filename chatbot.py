@@ -54,9 +54,9 @@ class LatexFixer:
 
     @staticmethod
     def fix(text):
-        text = re.sub(r'cdot', r'\\cdot', text)
-        text = re.sub(r'rac\{', r'\\frac{', text)
-        text = re.sub(r'pi', r'\\pi', text)
+        text = re.sub(r'(?<!\\)\bfrac\{', r'\\frac{', text)
+        text = re.sub(r'(?<!\\)\bcdot\b', r'\\cdot', text)
+        text = re.sub(r'(?<!\\)\bpi\b', r'\\pi', text)
         return text
 
 
@@ -89,7 +89,7 @@ class MarkdownRenderer:
 
     @staticmethod
     def to_html(text):
-
+        text = text.replace("\\", "\\\\")
         protected, blocks = MarkdownRenderer.protect_latex(text)
 
         html = markdown.markdown(
@@ -210,7 +210,7 @@ class ChatApp(QWidget):
         window.MathJax = {{
             tex: {{
                 inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
-                displayMath: [['$$', '$$']]
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
             }}
         }};
         </script>
