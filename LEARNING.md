@@ -14,7 +14,7 @@
 - Chamber Temperature → Tc ≈ 3500 K  
 - Specific Heat Ratio → γ ≈ 1.22  
 - Gas Constant → R ≈ 355 J/kg·K  
-- Characteristic Velocity → c* ≈ 1650 m/s  
+- Characteristic Velocity → c* ≈ 1783 m/s  
 
 ---
 
