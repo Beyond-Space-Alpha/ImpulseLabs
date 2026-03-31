@@ -2,36 +2,42 @@ import cadquery as cq
 
 
 def clean_points(points):
-    """
-    Removes consecutive duplicate points from a list.
-    """
+    """Remove consecutive duplicate points."""
     clean = []
-
     for p in points:
         if not clean or p != clean[-1]:
             clean.append(p)
-
     return clean
 
 
 def create_3d_nozzle(contour):
     """
-    Creates a 3D nozzle solid by revolving a 2D contour around the X-axis.
+    Revolve a 2D (x, r) contour about the x-axis into a 3D solid.
+
+    Parameters
+    ----------
+    contour : list[tuple[float, float]]
+        Full upper-wall contour in (x, radius) coordinates.
+
+    Returns
+    -------
+    cq.Workplane
+        3D solid nozzle/chamber body.
     """
     contour = clean_points(contour)
 
-    # x and y represent the propulsion coordinate standards
-    pts = [(x, y) for x, y in contour]
+    if len(contour) < 2:
+        raise ValueError("Contour must contain at least two points.")
 
-    # Insert boundary points for the revolution face
-    pts.insert(0, (pts[0][0], 0))
-    pts.append((pts[-1][0], 0))
+    pts = [(x, r) for x, r in contour]
 
-    # Construct the workplane and revolve
-    wp = cq.Workplane("XZ")
+    # Close to axis for revolve
+    pts.insert(0, (pts[0][0], 0.0))
+    pts.append((pts[-1][0], 0.0))
 
     solid = (
-        wp.polyline(pts)
+        cq.Workplane("XZ")
+        .polyline(pts)
         .close()
         .revolve(360, (0, 0, 0), (1, 0, 0))
     )

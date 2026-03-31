@@ -3,14 +3,21 @@ import cadquery as cq
 
 def export_step(shape, filename):
     """
-    Exports a CadQuery shape to a STEP file.
-    
-    Args:
-        shape: The CadQuery object (e.g., a solid or workplane).
-        filename (str): The destination path for the STEP file.
+    Export a CadQuery shape to STEP.
     """
-    # Ensure the file has the correct extension for CAD software compatibility
     if not filename.lower().endswith((".step", ".stp")):
         filename += ".step"
-        
+
     cq.exporters.export(shape, filename)
+    return filename
+
+
+def export_stl(shape, filename):
+    """
+    Export a CadQuery shape to STL for GUI previewing.
+    """
+    if not filename.lower().endswith(".stl"):
+        filename += ".stl"
+
+    cq.exporters.export(shape, filename)
+    return filename
