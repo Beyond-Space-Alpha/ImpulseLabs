@@ -72,7 +72,7 @@ $$
 
 ## 6. Thrust Coefficient
 $$ 
-$$The$$ Thrust$$ coefficient$$ was$$ found $$through $$RocketCEA $$and$$ the $$value $$comes $$around $$to $$be $$1.5$$
+The Thrust coefficient was found through RocketCEA and the value comes around to be 1.5
 $$
 $$
 C_f ≈ 1.5 
