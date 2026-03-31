@@ -110,7 +110,7 @@ $$
 ---
 
 ## 9. Expansion Ratio
-
+Through the isentropic relations the expansion ratio is calculated to be around 6 
 $$
 \\epsilon ≈ 6
 $$
