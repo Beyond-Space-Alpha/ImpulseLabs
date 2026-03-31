@@ -1,7 +1,7 @@
 # ImpulseLabs Propulsion Design – Fully Solved Flow
 
 ## Input Parameters
-- Chamber Pressure (Pc) = 30 bar = 4 × 10^6 Pa  
+- Chamber Pressure (Pc) = 40 bar = 4 × 10^6 Pa  
 - Mixture Ratio (O/F) = 2.5  
 - Thrust (F) = 1000 N  
 - Propellants = LOX + RP-1  
