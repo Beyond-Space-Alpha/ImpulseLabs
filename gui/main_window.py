@@ -566,7 +566,7 @@ $$
 | Mass Flow Rate | 0.404 kg/s |
 | Throat Radius | 8.4 mm |
 | Exit Radius | 20.6 mm |
-| Chamber Length | 0.33 m |
+2| Chamber Length | 0.33 m |
 | Expansion Ratio | 6 |
 
 ---
