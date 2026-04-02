@@ -78,7 +78,4 @@ python main.py
 One of the following licenses may be used:
 
 * Apache 2.0 License
-* MIT License
-* GPL License
-
 
