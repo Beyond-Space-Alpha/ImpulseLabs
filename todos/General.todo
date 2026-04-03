@@ -1,0 +1,36 @@
+{
+  "createdAt": "2026-04-03T11:24:14.53214+05:30",
+  "todos": [
+    {
+      "text": ".exe creation",
+      "done": false,
+      "createdAt": "2026-04-03T11:24:25.7304418+05:30",
+      "priority": false
+    },
+    {
+      "text": "setup installer creation",
+      "done": false,
+      "createdAt": "2026-04-03T11:24:33.5620048+05:30",
+      "priority": false
+    },
+    {
+      "text": "structuring the project files",
+      "done": false,
+      "createdAt": "2026-04-03T11:24:57.660854+05:30",
+      "priority": false
+    },
+    {
+      "text": "release structures",
+      "done": false,
+      "createdAt": "2026-04-03T11:25:07.2724509+05:30",
+      "priority": false
+    },
+    {
+      "text": "toml files ",
+      "done": false,
+      "createdAt": "2026-04-03T11:25:15.280699+05:30",
+      "priority": false
+    }
+  ],
+  "priority": false
+}
