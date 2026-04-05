@@ -3,9 +3,6 @@
 ### Open-Source Liquid Rocket Engine Design Platform
 
 ---
-
-## Poster
-
 <p align="center">
   <img src="poster.png" alt="ImpulseLabs Poster" width="500"/>
 </p>
