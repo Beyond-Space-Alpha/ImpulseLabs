@@ -282,7 +282,7 @@ GitHub: https://github.com/Beyond-Space-Alpha
 
 ## License
 
-This project is released under the MIT License.
+This project is released under the GPL V3.0 License.
 
 ---
 
