@@ -276,7 +276,7 @@ For sponsorship, collaboration, or research inquiries, contact:
 ## Contact
 
 Email: [impulselabs.propulsion@gmail.com](mailto:impulselabs.propulsion@gmail.com)
-GitHub: https://github.com/ImpulseLabs
+GitHub: https://github.com/Beyond-Space-Alpha
 
 ---
 
