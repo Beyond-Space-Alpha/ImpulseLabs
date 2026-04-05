@@ -4,7 +4,7 @@
 
 ---
 <p align="center">
-  <img src="poster.png" alt="ImpulseLabs Poster" width="800"/>
+  <img src="poster.png" alt="ImpulseLabs Poster" width="700"/>
 </p>
 
 ---
