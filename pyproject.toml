@@ -1,0 +1,61 @@
+[project]
+name = "impulse-labs"
+version = "1.2.0"
+description = "Engine simulation, CAD modeling, and visualization toolkit"
+authors = [
+    { name = "Anomitra Sarkar" },
+    { name = "Riddhima Singh" },
+    { name = "Rishika Misra" },
+    { name = "Abin B" },
+    { name = "Aditya Updadhya" },
+    { name = "Shishir Acharya" },
+]
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "requests",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "cadquery",
+    "gmsh",
+    "pyvistaqt",
+    "meshio",
+    "rocketcea",
+    "pyside6",
+    "PyQt6-WebEngine",
+    "markdown",
+    "qdarkstyle"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "ruff"
+]
+
+[project.scripts]
+impulse = "impulse_labs.main:main"
+impulse-ui = "impulse_labs.run_ui:start"
+
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# Formatting
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+# Linting
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+# Testing
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
