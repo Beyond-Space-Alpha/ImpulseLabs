@@ -1,17 +1,18 @@
 from PySide6.QtWidgets import *
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtGui import QAction
-
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+import threading
+from llm.chatbot import ChatbotWidget
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
-
 import os
 import shutil
 import numpy as np
 import markdown
 import meshio
+import markdown as md 
 
 from core.inputs import EngineInputs
 from core.engine_solver import run_engine_pipeline
@@ -22,7 +23,10 @@ from core.engine_solver import run_engine_pipeline
 # -------------------------
 class MarkdownViewer(QWebEngineView):
     def set_markdown(self, md_text):
-        html_body = markdown.markdown(md_text)
+        html_body = md.markdown(
+            md_text,
+            extensions=["fenced_code", "tables"]
+        )
 
         html = f"""
         <html>
@@ -159,6 +163,8 @@ class ImpulseLabsWindow(QMainWindow):
 
         self.setWindowTitle("Impulse Labs")
         self.resize(1800, 900)
+
+        
 
         self._last_result = None
         self.llm_visible = True
@@ -481,8 +487,9 @@ class ImpulseLabsWindow(QMainWindow):
     # UI HELPERS
     # -------------------------
     def toggle_llm_panel(self):
-        self.llm_visible = not self.llm_visible
-        self.llm_widget.setVisible(self.llm_visible)
+        if hasattr(self, "llm_widget"):
+            self.llm_visible = not self.llm_visible
+            self.llm_widget.setVisible(self.llm_visible)
 
     def reset_inputs(self):
         self.thrust.val.setValue(1000)
@@ -504,7 +511,7 @@ class ImpulseLabsWindow(QMainWindow):
         layout.addWidget(self.learning_col(), 1)
         layout.addWidget(self.plot_col(), 3)
 
-        self.llm_widget = self.llm_col()
+        self.llm_widget = ChatbotWidget()
         layout.addWidget(self.llm_widget, 1)
 
         w = QWidget()
@@ -768,24 +775,12 @@ Inputs → Combustion → Expansion → Velocity → Thrust → Geometry → Noz
             self.info.setText(f"Error: {str(exc)}")
             QMessageBox.critical(self, "Simulation Error", str(exc))
 
+        except Exception as exc:
+            self.info.setText(f"Error: {exc}")
+            QMessageBox.critical(self, "Simulation Error", str(exc))
+
         finally:
             self.run_btn.setEnabled(True)
-
-    def llm_col(self):
-        layout = QVBoxLayout()
-
-        layout.addWidget(QLabel("LLM"))
-
-        self.chat = QTextEdit()
-        layout.addWidget(self.chat)
-
-        api_btn = QPushButton("Set API Key")
-        api_btn.clicked.connect(self.api_popup)
-        layout.addWidget(api_btn)
-
-        w = QWidget()
-        w.setLayout(layout)
-        return w
 
     def api_popup(self):
         dlg = QDialog(self)
