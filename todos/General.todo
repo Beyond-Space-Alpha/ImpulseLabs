@@ -30,6 +30,12 @@
       "done": false,
       "createdAt": "2026-04-03T11:25:15.280699+05:30",
       "priority": false
+    },
+    {
+      "text": "learning mode proper integration",
+      "done": false,
+      "createdAt": "2026-04-06T22:26:14.9645609+05:30",
+      "priority": false
     }
   ],
   "priority": false
