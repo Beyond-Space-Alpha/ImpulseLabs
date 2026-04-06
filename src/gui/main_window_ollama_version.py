@@ -242,14 +242,14 @@ class ImpulseLabsWindow(QMainWindow):
         container = QWidget()
         layout = QVBoxLayout()
 	
-	self.chat_display=QTextEdit()
-	self.chat_display.setReadOnly(True)
+        self.chat_display=QTextEdit()
+        self.chat_display.setReadOnly(True)
 
         self.chat_input = QTextEdit()
-	self.chat_input.setPlaceholderText("Ask anything about rocket engines, CFD, or ML...")
+	    self.chat_input.setPlaceholderText("Ask anything about rocket engines, CFD, or ML...")
 
         self.send_button = QPushButton("Send")
-   	self.send_button.clicked.connect(self.send_llm_message)
+   	    self.send_button.clicked.connect(self.send_llm_message)
 
     	layout.addWidget(self.chat_display)
     	layout.addWidget(self.chat_input)
@@ -272,8 +272,8 @@ class ImpulseLabsWindow(QMainWindow):
 
     	prompt = self.chat_input.toPlainText().strip()
 
-   	if not prompt:
-        	return
+        if not prompt:
+                return
 
     	self.chat_display.append("You: " + prompt)
 
