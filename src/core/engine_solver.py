@@ -164,13 +164,13 @@ def run_engine_pipeline(inputs):
     mesh_file = generate_axi_mesh(
         contour,
         rt=solution["rt"],
-        filename="engine_axi.msh",
+        filename="output/engine_axi.msh",
     )
 
     # CAD generated from the SAME solved contour
     cad_shape = create_3d_nozzle(contour)
-    step_file = export_step(cad_shape, "engine.step")
-    stl_file = export_stl(cad_shape, "engine.stl")
+    step_file = export_step(cad_shape, "output/engine.step")
+    stl_file = export_stl(cad_shape, "output/engine.stl")
 
     return {
         "solution": solution,
