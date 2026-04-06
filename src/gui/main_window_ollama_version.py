@@ -350,7 +350,7 @@ class ImpulseLabsWindow(QMainWindow):
 
         generate_axi_mesh(self.contour)
 
-        mesh = meshio.read("engine_axi.msh")
+        mesh = meshio.read("output/engine_axi.msh")
 
         points = mesh.points[:, :2]
 

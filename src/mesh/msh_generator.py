@@ -21,7 +21,7 @@ def clean_contour(contour):
     return clean
 
 
-def generate_axi_mesh(contour, rt=None, filename="engine_axi.msh"):
+def generate_axi_mesh(contour, rt=None, filename="output/engine_axi.msh"):
     contour = clean_contour(contour)
 
     gmsh.initialize()
