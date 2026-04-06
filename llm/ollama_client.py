@@ -1,24 +1,24 @@
 import requests
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL = "llama3:8b"
 
-def ask_ollama(prompt: str) -> str:
-    payload = {
-        "model": MODEL,
-        "prompt": prompt,
-        "stream": False
-    }
+class OllamaClient:
 
-    try:
-        response = requests.post(OLLAMA_URL, json=payload)
-        response.raise_for_status()
+    def chat(self, messages):
 
-        data = response.json()
-        return data.get("response", "No response from model.")
+        try:
+            response = requests.post(
+                "http://localhost:11434/api/chat",
+                json={
+                    "model": MODEL,
+                    "messages": messages,
+                    "stream": False
+                },
+                timeout=120
+            )
 
-    except requests.exceptions.ConnectionError:
-        return "Error: Ollama is not running. Start it using 'ollama serve'."
+            data = response.json()
+            return data["message"]["content"]
 
-    except Exception as e:
-        return f"Error: {str(e)}"
+        except Exception as e:
+            return f"Error: {e}"
